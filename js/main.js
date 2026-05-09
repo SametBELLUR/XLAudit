@@ -276,21 +276,26 @@
           jsBlocks.push(`// === js/${name}.js ===\n${await r.text()}`);
         }
 
+        // NOT: Bu fonksiyon standalone bundle'a inline edildiğinde
+        // bu string'lerdeki literal kapanış etiketi HTML parser'ı
+        // tarafından dış script bloğunun kapanışı olarak yorumlanır.
+        // '<\/script>' yazımı JS runtime'ında aynı string'e eşittir
+        // ama HTML parser tarafından kapanış olarak görülmez.
         const scriptRe = new RegExp(
-          '  <script src="js/parse\\.js"></script>\\s*\\n' +
-            '\\s*<script src="js/patterns\\.js"></script>\\s*\\n' +
-            '\\s*<script src="js/analysis\\.js"></script>\\s*\\n' +
-            '\\s*<script src="js/triage\\.js"></script>\\s*\\n' +
-            '\\s*<script src="js/markdown\\.js"></script>\\s*\\n' +
-            '\\s*<script src="js/main\\.js"></script>'
+          '  <script src="js/parse\\.js"><\\/script>\\s*\\n' +
+            '\\s*<script src="js/patterns\\.js"><\\/script>\\s*\\n' +
+            '\\s*<script src="js/analysis\\.js"><\\/script>\\s*\\n' +
+            '\\s*<script src="js/triage\\.js"><\\/script>\\s*\\n' +
+            '\\s*<script src="js/markdown\\.js"><\\/script>\\s*\\n' +
+            '\\s*<script src="js/main\\.js"><\\/script>'
         );
 
         html = html
           .replace(
             '<link rel="stylesheet" href="css/styles.css">',
-            () => `<style>\n${css}\n</style>`
+            () => `<style>\n${css}\n<\/style>`
           )
-          .replace(scriptRe, () => `  <script>\n${jsBlocks.join('\n\n')}\n  </script>`);
+          .replace(scriptRe, () => `  <script>\n${jsBlocks.join('\n\n')}\n  <\/script>`);
       }
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
