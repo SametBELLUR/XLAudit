@@ -53,7 +53,8 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 ├── LICENSE          # PolyForm Noncommercial 1.0.0
 ├── README.md        # Türkçe (varsayılan)
 ├── README.en.md     # English
-├── PROMPT.md        # LLM analiz prompt şablonu
+├── PROMPT.md        # LLM analiz prompt şablonu (TR)
+├── PROMPT.en.md     # LLM analiz prompt şablonu (EN)
 ├── index.html       # HTML iskelet, CDN script, modül yükleme sırası
 ├── css/styles.css   # Sade CSS (sistem font, max-width 900px)
 └── js/

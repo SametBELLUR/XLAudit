@@ -3,6 +3,10 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 Copyright (c) 2026 Samet Bellur
 -->
 
+**🇹🇷 Türkçe** · [🇬🇧 English](PROMPT.en.md)
+
+---
+
 # Excel Denetim Raporu — LLM Prompt Şablonu
 
 Aşağıdaki Markdown raporu, **Excel Denetim Raporu Üreticisi** tarafından otomatik üretilmiş bir analizdir. Bu rapora bakarak iki adımlı bir analiz çıktısı oluşturmanı istiyorum.
