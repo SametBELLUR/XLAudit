@@ -1,270 +1,241 @@
 // Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
+// IIFE — global namespace'e ihtiyacı yok, sadece DOM'a bağlanıyor.
 
-import {
-  readWorkbook,
-  collectSheetMeta,
-  collectFormulas,
-  collectNamedRanges,
-  extractRedactionConfig,
-  compileRedactionRules,
-  getSheetRedactor,
-} from './parse.js';
-import { groupByPattern } from './patterns.js';
-import {
-  findInconsistencies,
-  aggregateConstants,
-  aggregateCrossSheetRefs,
-  aggregateExternalLinks,
-  findOneOffFormulas,
-  collectInconsistencyOutlierAddrs,
-} from './analysis.js';
-import { buildReport } from './markdown.js';
+(function () {
+  const { readWorkbook, collectSheetMeta, collectFormulas, collectNamedRanges } = window.EA.parse;
+  const { groupByPattern } = window.EA.patterns;
+  const {
+    findInconsistencies,
+    aggregateConstants,
+    aggregateCrossSheetRefs,
+    aggregateExternalLinks,
+    findOneOffFormulas,
+    collectInconsistencyOutlierAddrs,
+  } = window.EA.analysis;
+  const { buildReport } = window.EA.markdown;
 
-const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
+  const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 
-const ACCEPTED_EXTS = ['.xlsx', '.xlsm'];
-const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
+  const ACCEPTED_EXTS = ['.xlsx', '.xlsm'];
+  const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
 
-const els = {
-  dropzone: document.getElementById('dropzone'),
-  fileInput: document.getElementById('file-input'),
-  fileInfo: document.getElementById('file-info'),
-  analyzeBtn: document.getElementById('analyze-btn'),
-  status: document.getElementById('status-line'),
-  errorBox: document.getElementById('error-box'),
-  errorMsg: document.getElementById('error-msg'),
-  errorDetail: document.getElementById('error-detail'),
-  resultBox: document.getElementById('result-box'),
-  resultOutput: document.getElementById('result-output'),
-  copyBtn: document.getElementById('copy-btn'),
-  downloadBtn: document.getElementById('download-btn'),
-};
+  const els = {
+    dropzone: document.getElementById('dropzone'),
+    fileInput: document.getElementById('file-input'),
+    fileInfo: document.getElementById('file-info'),
+    analyzeBtn: document.getElementById('analyze-btn'),
+    status: document.getElementById('status-line'),
+    errorBox: document.getElementById('error-box'),
+    errorMsg: document.getElementById('error-msg'),
+    errorDetail: document.getElementById('error-detail'),
+    resultBox: document.getElementById('result-box'),
+    resultOutput: document.getElementById('result-output'),
+    copyBtn: document.getElementById('copy-btn'),
+    downloadBtn: document.getElementById('download-btn'),
+  };
 
-let currentFile = null;
-let currentMarkdown = '';
+  let currentFile = null;
+  let currentMarkdown = '';
 
-function setStatus(msg) {
-  els.status.textContent = msg ?? '';
-}
-
-function showError(msg, detail) {
-  els.errorBox.hidden = false;
-  els.errorMsg.textContent = msg;
-  els.errorDetail.textContent = detail ?? '';
-  console.error('[ExcelAudit]', msg, detail);
-}
-
-function clearError() {
-  els.errorBox.hidden = true;
-  els.errorMsg.textContent = '';
-  els.errorDetail.textContent = '';
-}
-
-function isAcceptedFile(file) {
-  if (!file) return false;
-  const name = file.name.toLowerCase();
-  return ACCEPTED_EXTS.some((ext) => name.endsWith(ext));
-}
-
-function fileType(file) {
-  const lower = file.name.toLowerCase();
-  if (lower.endsWith('.xlsm')) return '.xlsm';
-  if (lower.endsWith('.xlsx')) return '.xlsx';
-  return 'bilinmiyor';
-}
-
-function setCurrentFile(file) {
-  if (!isAcceptedFile(file)) {
-    showError(
-      'Bu dosya tipi desteklenmiyor.',
-      `Beklenen: ${ACCEPTED_EXTS.join(', ')}\nVerilen: ${file?.name ?? '(yok)'}`
-    );
-    currentFile = null;
-    els.fileInfo.hidden = true;
-    els.analyzeBtn.disabled = true;
-    return;
+  function setStatus(msg) {
+    els.status.textContent = msg ?? '';
   }
-  clearError();
-  currentFile = file;
-  els.fileInfo.hidden = false;
-  els.fileInfo.textContent = `${file.name} — ${(file.size / 1024).toFixed(1)} KB`;
-  els.analyzeBtn.disabled = false;
-  setStatus('Hazır. "Analiz Et" butonuna basın.');
-  if (file.size > LARGE_FILE_THRESHOLD) {
-    setStatus(
-      `Dosya büyük (${(file.size / 1024 / 1024).toFixed(1)} MB). Analiz birkaç saniye sürebilir.`
-    );
+
+  function showError(msg, detail) {
+    els.errorBox.hidden = false;
+    els.errorMsg.textContent = msg;
+    els.errorDetail.textContent = detail ?? '';
+    console.error('[ExcelAudit]', msg, detail);
   }
-}
 
-async function runAnalysis() {
-  if (!currentFile) return;
-  clearError();
-  els.resultBox.hidden = true;
-  els.analyzeBtn.disabled = true;
-  setStatus('Dosya okunuyor…');
+  function clearError() {
+    els.errorBox.hidden = true;
+    els.errorMsg.textContent = '';
+    els.errorDetail.textContent = '';
+  }
 
-  try {
-    const buf = await currentFile.arrayBuffer();
-    setStatus('Workbook ayrıştırılıyor…');
-    const wbResult = await readWorkbook(buf);
-    if (!wbResult.ok) {
-      showError('Workbook ayrıştırılamadı.', wbResult.error);
+  function isAcceptedFile(file) {
+    if (!file) return false;
+    const name = file.name.toLowerCase();
+    return ACCEPTED_EXTS.some((ext) => name.endsWith(ext));
+  }
+
+  function fileType(file) {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.xlsm')) return '.xlsm';
+    if (lower.endsWith('.xlsx')) return '.xlsx';
+    return 'bilinmiyor';
+  }
+
+  function setCurrentFile(file) {
+    if (!isAcceptedFile(file)) {
+      showError(
+        'Bu dosya tipi desteklenmiyor.',
+        `Beklenen: ${ACCEPTED_EXTS.join(', ')}\nVerilen: ${file?.name ?? '(yok)'}`
+      );
+      currentFile = null;
+      els.fileInfo.hidden = true;
+      els.analyzeBtn.disabled = true;
       return;
     }
-    const wb = wbResult.data;
-
-    setStatus('Redaction config aranıyor…');
-    const rawConfig = extractRedactionConfig(wb);
-    const compiled = compileRedactionRules(rawConfig.rules);
-    const redaction = {
-      sheetName: rawConfig.sheetName,
-      compiledRules: compiled.compiledRules,
-      parseErrors: compiled.parseErrors,
-      errors: rawConfig.errors,
-    };
-    if (rawConfig.sheetName) {
-      console.log(
-        `[ExcelAudit] Redaction config: '${rawConfig.sheetName}', ${compiled.compiledRules.length} kural derlendi, ${compiled.parseErrors.length} parse hatası.`
+    clearError();
+    currentFile = file;
+    els.fileInfo.hidden = false;
+    els.fileInfo.textContent = `${file.name} — ${(file.size / 1024).toFixed(1)} KB`;
+    els.analyzeBtn.disabled = false;
+    setStatus('Hazır. "Analiz Et" butonuna basın.');
+    if (file.size > LARGE_FILE_THRESHOLD) {
+      setStatus(
+        `Dosya büyük (${(file.size / 1024 / 1024).toFixed(1)} MB). Analiz birkaç saniye sürebilir.`
       );
     }
+  }
 
-    setStatus(`Sheet metadata toplanıyor (${wb.SheetNames.length} sheet)…`);
-    const allSheets = collectSheetMeta(wb);
-    // Config sayfasını ana akıştan dışla — analiz edilmesin, rapora
-    // sheet section olarak girmesin. Genel Özet'te "redaction" satırı
-    // ile zaten bahsediliyor.
-    const sheets = rawConfig.sheetName
-      ? allSheets.filter((s) => s.name !== rawConfig.sheetName)
-      : allSheets;
+  async function runAnalysis() {
+    if (!currentFile) return;
+    clearError();
+    els.resultBox.hidden = true;
+    els.analyzeBtn.disabled = true;
+    setStatus('Dosya okunuyor…');
 
-    for (let i = 0; i < sheets.length; i++) {
-      const s = sheets[i];
-      setStatus(`Sheet ${i + 1}/${sheets.length} analiz ediliyor: "${s.name}"…`);
+    try {
+      const buf = await currentFile.arrayBuffer();
+      setStatus('Workbook ayrıştırılıyor…');
+      const wbResult = await readWorkbook(buf);
+      if (!wbResult.ok) {
+        showError('Workbook ayrıştırılamadı.', wbResult.error);
+        return;
+      }
+      const wb = wbResult.data;
+
+      setStatus(`Sheet metadata toplanıyor (${wb.SheetNames.length} sheet)…`);
+      const sheets = collectSheetMeta(wb);
+
+      for (let i = 0; i < sheets.length; i++) {
+        const s = sheets[i];
+        setStatus(`Sheet ${i + 1}/${sheets.length} analiz ediliyor: "${s.name}"…`);
+        await yieldToUI();
+        const ws = wb.Sheets[s.name];
+        s.formulas = collectFormulas(ws);
+        s.patternGroups = groupByPattern(s.formulas);
+        s.inconsistencies = findInconsistencies(s.formulas, s.patternGroups);
+        s.constants = aggregateConstants(s.patternGroups);
+        s.crossSheetRefs = aggregateCrossSheetRefs(s.patternGroups);
+        const outlierAddrs = collectInconsistencyOutlierAddrs(s.inconsistencies);
+        s.oneOffs = findOneOffFormulas(s.patternGroups, outlierAddrs);
+        console.log(
+          `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
+        );
+      }
+
+      setStatus('Workbook seviyesinde meta toplanıyor…');
       await yieldToUI();
-      const ws = wb.Sheets[s.name];
-      const isRedacted = getSheetRedactor(compiled, s.name);
-      s.formulas = collectFormulas(ws, isRedacted);
-      s.patternGroups = groupByPattern(s.formulas);
-      s.inconsistencies = findInconsistencies(s.formulas, s.patternGroups);
-      s.constants = aggregateConstants(s.patternGroups);
-      s.crossSheetRefs = aggregateCrossSheetRefs(s.patternGroups);
-      const outlierAddrs = collectInconsistencyOutlierAddrs(s.inconsistencies);
-      s.oneOffs = findOneOffFormulas(s.patternGroups, outlierAddrs);
-      const redactedCount = s.formulas.filter((f) => f.redacted).length;
-      console.log(
-        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül (${redactedCount} maskeli), ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
-      );
+      const namedRanges = collectNamedRanges(wb);
+      const externalLinks = aggregateExternalLinks(sheets);
+
+      setStatus('Markdown raporu oluşturuluyor…');
+      await yieldToUI();
+      const md = buildReport({
+        fileMeta: {
+          fileName: currentFile.name,
+          fileSize: currentFile.size,
+          fileType: fileType(currentFile),
+        },
+        sheets,
+        namedRanges,
+        externalLinks,
+      });
+
+      currentMarkdown = md;
+      els.resultOutput.textContent = md;
+      els.resultBox.hidden = false;
+      setStatus(`Tamamlandı. ${sheets.length} sheet işlendi.`);
+    } catch (err) {
+      showError('Beklenmeyen hata oluştu.', err?.stack ?? String(err));
+    } finally {
+      els.analyzeBtn.disabled = !currentFile;
     }
+  }
 
-    setStatus('Workbook seviyesinde meta toplanıyor…');
-    await yieldToUI();
-    const namedRanges = collectNamedRanges(wb);
-    const externalLinks = aggregateExternalLinks(sheets);
+  function bindDropzone() {
+    const dz = els.dropzone;
 
-    setStatus('Markdown raporu oluşturuluyor…');
-    await yieldToUI();
-    const md = buildReport({
-      fileMeta: {
-        fileName: currentFile.name,
-        fileSize: currentFile.size,
-        fileType: fileType(currentFile),
-      },
-      sheets,
-      namedRanges,
-      externalLinks,
-      redaction,
+    ['dragenter', 'dragover'].forEach((ev) =>
+      dz.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.add('dragover');
+      })
+    );
+
+    ['dragleave', 'drop'].forEach((ev) =>
+      dz.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.remove('dragover');
+      })
+    );
+
+    dz.addEventListener('drop', (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file) setCurrentFile(file);
     });
 
-    currentMarkdown = md;
-    els.resultOutput.textContent = md;
-    els.resultBox.hidden = false;
-    setStatus(`Tamamlandı. ${sheets.length} sheet işlendi.`);
-  } catch (err) {
-    showError('Beklenmeyen hata oluştu.', err?.stack ?? String(err));
-  } finally {
-    els.analyzeBtn.disabled = !currentFile;
-  }
-}
-
-function bindDropzone() {
-  const dz = els.dropzone;
-
-  ['dragenter', 'dragover'].forEach((ev) =>
-    dz.addEventListener(ev, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dz.classList.add('dragover');
-    })
-  );
-
-  ['dragleave', 'drop'].forEach((ev) =>
-    dz.addEventListener(ev, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dz.classList.remove('dragover');
-    })
-  );
-
-  dz.addEventListener('drop', (e) => {
-    const file = e.dataTransfer?.files?.[0];
-    if (file) setCurrentFile(file);
-  });
-
-  dz.addEventListener('click', (e) => {
-    if (e.target.closest('label')) return;
-    els.fileInput.click();
-  });
-
-  dz.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
+    dz.addEventListener('click', (e) => {
+      if (e.target.closest('label')) return;
       els.fileInput.click();
-    }
-  });
-}
+    });
 
-function bindButtons() {
-  els.fileInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (file) setCurrentFile(file);
-  });
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        els.fileInput.click();
+      }
+    });
+  }
 
-  els.analyzeBtn.addEventListener('click', runAnalysis);
+  function bindButtons() {
+    els.fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) setCurrentFile(file);
+    });
 
-  els.copyBtn.addEventListener('click', async () => {
-    if (!currentMarkdown) return;
-    try {
-      await navigator.clipboard.writeText(currentMarkdown);
-      const old = els.copyBtn.textContent;
-      els.copyBtn.textContent = 'Kopyalandı';
-      setTimeout(() => (els.copyBtn.textContent = old), 1500);
-    } catch (err) {
-      showError('Panoya kopyalama başarısız.', String(err));
-    }
-  });
+    els.analyzeBtn.addEventListener('click', runAnalysis);
 
-  els.downloadBtn.addEventListener('click', () => {
-    if (!currentMarkdown || !currentFile) return;
-    const baseName = currentFile.name.replace(/\.(xlsx|xlsm)$/i, '');
-    const fname = `${baseName}-denetim.md`;
-    const blob = new Blob([currentMarkdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
-}
+    els.copyBtn.addEventListener('click', async () => {
+      if (!currentMarkdown) return;
+      try {
+        await navigator.clipboard.writeText(currentMarkdown);
+        const old = els.copyBtn.textContent;
+        els.copyBtn.textContent = 'Kopyalandı';
+        setTimeout(() => (els.copyBtn.textContent = old), 1500);
+      } catch (err) {
+        showError('Panoya kopyalama başarısız.', String(err));
+      }
+    });
 
-function init() {
-  bindDropzone();
-  bindButtons();
-  setStatus('Bir Excel dosyası yükleyin.');
-  console.log('[ExcelAudit] Hazır.');
-}
+    els.downloadBtn.addEventListener('click', () => {
+      if (!currentMarkdown || !currentFile) return;
+      const baseName = currentFile.name.replace(/\.(xlsx|xlsm)$/i, '');
+      const fname = `${baseName}-denetim.md`;
+      const blob = new Blob([currentMarkdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  }
 
-init();
+  function init() {
+    bindDropzone();
+    bindButtons();
+    setStatus('Bir Excel dosyası yükleyin.');
+    console.log('[ExcelAudit] Hazır.');
+  }
+
+  init();
+})();
