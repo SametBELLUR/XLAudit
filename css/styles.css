@@ -152,6 +152,30 @@ button:disabled {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: #f4f4f4;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.result-actions-sep { color: var(--border-strong); }
+.result-subset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+.result-subset-label { color: var(--fg-soft); }
+.result-subset select {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-card);
+  max-width: 200px;
+}
+.result-subset select:focus { outline: none; border-color: var(--accent); }
+.result-subset button {
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 .result-output {

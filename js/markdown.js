@@ -351,5 +351,50 @@ window.EA.markdown = (function () {
     return parts.filter((p) => p !== '').join(NL);
   }
 
-  return { buildReport };
+  // Belirli bir odak sheet ve bu sheet'in çapraz referans verdiği
+  // sheet'ler için odaklı bir rapor üretir. Workbook geneli bölümler
+  // (Named Ranges, External Links, Gizli Öğeler, VBA placeholder)
+  // dahil edilmez — alt küme daha kısa kalsın diye.
+  function buildSubsetReport({ fileMeta, allSheets, focusSheetName, includedSheetNames, sensitive }) {
+    const subset = allSheets.filter((s) => includedSheetNames.includes(s.name));
+    const refSheetNames = includedSheetNames.filter((n) => n !== focusSheetName);
+    const totals = computeTotals(subset);
+
+    const refsList = refSheetNames.length
+      ? refSheetNames.map((n) => '`' + escapeCell(n) + '`').join(', ')
+      : '_(yok — bu sheet diğer sheet\'lere referans vermiyor)_';
+
+    const header = [
+      `# Excel Denetim Raporu (Alt Küme): ${fileMeta.fileName}`,
+      '',
+      `**Üretim tarihi:** ${new Date().toISOString()}  `,
+      `**Odak sheet:** \`${escapeCell(focusSheetName)}\`  `,
+      `**Çapraz referansla dahil edilen (${refSheetNames.length}):** ${refsList}`,
+      '',
+      `Bu alt küme \`${escapeCell(focusSheetName)}\` sheet'i ve içindeki formüllerin doğrudan referans verdiği sheet'leri içerir. Workbook geneli bilgiler (Named Ranges, External Links, Gizli Öğeler, VBA) dahil değildir.`,
+      '',
+    ].join(NL);
+
+    const summary = [
+      '## Alt Küme Özeti',
+      '',
+      `- Sheet sayısı: ${subset.length}`,
+      `- Toplam formül: ${totals.formulas}`,
+      `- Benzersiz patern: ${totals.patterns}`,
+      `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
+      '',
+    ].join(NL);
+
+    const parts = [
+      header,
+      summary,
+      renderRedactionNote(sensitive),
+      '---',
+      '',
+      ...subset.map((s) => renderSheetSection(s, sensitive)),
+    ];
+    return parts.filter((p) => p !== '').join(NL);
+  }
+
+  return { buildReport, buildSubsetReport };
 })();

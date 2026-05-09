@@ -11,8 +11,9 @@
     aggregateExternalLinks,
     findOneOffFormulas,
     collectInconsistencyOutlierAddrs,
+    findReferencedSheets,
   } = window.EA.analysis;
-  const { buildReport } = window.EA.markdown;
+  const { buildReport, buildSubsetReport } = window.EA.markdown;
   const { collectCandidates, runTriage } = window.EA.triage;
 
   const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
@@ -37,6 +38,8 @@
 
   let currentFile = null;
   let currentMarkdown = '';
+  // Son analiz sonucunu sakla — alt-küme indirme butonu kullanır.
+  let lastAnalysis = null;
 
   function setStatus(msg) {
     els.status.textContent = msg ?? '';
@@ -147,12 +150,13 @@
 
       setStatus('Markdown raporu oluşturuluyor…');
       await yieldToUI();
+      const fileMeta = {
+        fileName: currentFile.name,
+        fileSize: currentFile.size,
+        fileType: fileType(currentFile),
+      };
       const md = buildReport({
-        fileMeta: {
-          fileName: currentFile.name,
-          fileSize: currentFile.size,
-          fileType: fileType(currentFile),
-        },
+        fileMeta,
         sheets,
         namedRanges,
         externalLinks,
@@ -160,8 +164,10 @@
       });
 
       currentMarkdown = md;
+      lastAnalysis = { fileMeta, sheets, sensitive };
       els.resultOutput.textContent = md;
       els.resultBox.hidden = false;
+      populateSubsetSelect(sheets);
       setStatus(`Tamamlandı. ${sheets.length} sheet işlendi.`);
     } catch (err) {
       showError('Beklenmeyen hata oluştu.', err?.stack ?? String(err));
@@ -242,10 +248,79 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
 
+    const subsetSelect = document.getElementById('subset-sheet-select');
+    const subsetBtn = document.getElementById('subset-download-btn');
+    if (subsetSelect && subsetBtn) {
+      subsetSelect.addEventListener('change', () => {
+        subsetBtn.disabled = !subsetSelect.value;
+        if (subsetSelect.value && lastAnalysis) {
+          const focus = lastAnalysis.sheets.find((s) => s.name === subsetSelect.value);
+          const refs = focus
+            ? findReferencedSheets(focus, lastAnalysis.sheets.map((s) => s.name))
+            : [];
+          subsetBtn.textContent = refs.length
+            ? `Sheet+${refs.length} bağlı sheet indir`
+            : 'Sadece bu sheet (bağlısı yok) indir';
+        } else {
+          subsetBtn.textContent = 'Sheet+bağlıları indir';
+        }
+      });
+      subsetBtn.addEventListener('click', () => downloadSubset(subsetSelect.value));
+    }
+
     const standaloneBtn = document.getElementById('download-standalone-btn');
     if (standaloneBtn) {
       standaloneBtn.addEventListener('click', () => downloadStandalone(standaloneBtn));
     }
+  }
+
+  function populateSubsetSelect(sheets) {
+    const select = document.getElementById('subset-sheet-select');
+    const btn = document.getElementById('subset-download-btn');
+    if (!select || !btn) return;
+    select.innerHTML = '<option value="">— sheet seç —</option>';
+    for (const s of sheets) {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      const fc = s.formulas?.length ?? 0;
+      opt.textContent = `${s.name} (${fc} formül)`;
+      select.appendChild(opt);
+    }
+    select.disabled = sheets.length === 0;
+    btn.disabled = true;
+    btn.textContent = 'Sheet+bağlıları indir';
+  }
+
+  function downloadSubset(focusName) {
+    if (!focusName || !lastAnalysis) return;
+    const { sheets, sensitive, fileMeta } = lastAnalysis;
+    const allSheetNames = sheets.map((s) => s.name);
+    const focus = sheets.find((s) => s.name === focusName);
+    if (!focus) return;
+    const refs = findReferencedSheets(focus, allSheetNames);
+    const includedSheetNames = [focus.name, ...refs];
+
+    const md = buildSubsetReport({
+      fileMeta,
+      allSheets: sheets,
+      focusSheetName: focus.name,
+      includedSheetNames,
+      sensitive,
+    });
+
+    const baseName = (fileMeta.fileName || 'rapor').replace(/\.(xlsx|xlsm)$/i, '');
+    const safeFocus = focus.name.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40);
+    const fname = `${baseName}-${safeFocus}-altkume.md`;
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus(`Alt küme indirildi: ${focus.name} + ${refs.length} bağlı sheet.`);
   }
 
   // Mevcut sayfanın CSS+JS'sini inline edip tek dosyalık standalone
