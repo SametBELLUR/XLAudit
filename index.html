@@ -61,30 +61,41 @@
   </main>
 
   <div id="triage-overlay" class="triage-overlay" hidden aria-hidden="true">
-    <div class="triage-modal" role="dialog" aria-labelledby="triage-title">
+    <div class="triage-modal triage-modal-grid" role="dialog" aria-labelledby="triage-title">
       <header class="triage-header">
         <span id="triage-title" class="triage-title">Hassas veri kontrolü</span>
-        <span class="triage-progress" id="triage-progress">0 / 0</span>
+        <span class="triage-progress" id="triage-progress">0 / 0 hassas</span>
       </header>
       <p class="triage-question">
-        Bu değer <strong>hassas mı</strong>? Evet derseniz raporda <code>***</code> ile gizlenir.
+        Raporda <code>***</code> ile gizlemek istediğiniz değerleri işaretleyin. Sekmeler değer tipine göre ayrılır.
       </p>
-      <div class="triage-stack" id="triage-stack" aria-live="polite"></div>
-      <div class="triage-actions">
-        <button id="triage-no" class="triage-btn triage-btn-no" type="button" aria-label="Hayır, hassas değil">
-          <span class="triage-btn-icon">✕</span>
-          <span class="triage-btn-label">HAYIR</span>
-          <span class="triage-btn-sub">gizleme</span>
-        </button>
-        <button id="triage-yes" class="triage-btn triage-btn-yes" type="button" aria-label="Evet, hassas">
-          <span class="triage-btn-icon">✓</span>
-          <span class="triage-btn-label">EVET</span>
-          <span class="triage-btn-sub">hassas, gizle</span>
-        </button>
+      <div class="triage-tabs" id="triage-tabs" role="tablist"></div>
+      <div class="triage-toolbar">
+        <button id="triage-select-all" class="bulk-btn" type="button">Hepsini Seç</button>
+        <button id="triage-clear-all" class="bulk-btn" type="button">Hepsini Kaldır</button>
+        <input id="triage-filter" type="search" placeholder="Filtrele…" class="bulk-filter" autocomplete="off">
       </div>
-      <div class="triage-footer">
-        <span class="triage-hint">← Hayır · Evet → · Esc: Bitir</span>
-        <button id="triage-skip-all" class="triage-skip" type="button">Bu kadar yeter, kalanları gizleme</button>
+      <div class="triage-grid-wrap">
+        <table class="triage-grid">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="triage-master-check" aria-label="Görünenleri seç"></th>
+              <th class="col-value">Değer</th>
+              <th class="col-loc">Konum</th>
+              <th class="col-count" title="Bu değerin görüldüğü hücre sayısı">#</th>
+            </tr>
+          </thead>
+          <tbody id="triage-grid-body"></tbody>
+        </table>
+      </div>
+      <div class="triage-footer-grid">
+        <span class="triage-hint">Satıra tıkla = işaretle/kaldır · Esc: iptal · Ctrl+Enter: bitti</span>
+        <div class="triage-footer-buttons">
+          <button id="triage-cancel" class="footer-btn-secondary" type="button">İptal</button>
+          <button id="triage-commit" class="footer-btn-primary" type="button">
+            Bitti — <span id="triage-commit-count">0</span> hassas
+          </button>
+        </div>
       </div>
     </div>
   </div>
