@@ -1,15 +1,13 @@
-// Hassas veri triaj modülü.
-// Sheet'lerden toplanan benzersiz değerleri kullanıcıya tek tek
-// gösterir; HAYIR (gizleme) / EVET (gizle, hassas) butonları veya
-// klavye Sol/Sağ ok tuşlarıyla karar alınır. Tinder-vari swipe
-// animasyonu ile bir sonraki kart gelir.
+// Hassas veri triaj modülü — sekmeli grid sürümü.
+// Üç tab: Metin, Sayısal (tam sayı), Ondalıklı (decimal).
+// Her sekmede satır listesi: işaretle, satıra tıkla, "Hepsini Seç" /
+// "Hepsini Kaldır" / filtre. Bitti'ye basınca Set<string> hassas
+// değerlerle resolve.
 //
 // IIFE + global namespace (window.EA.triage).
 
 window.EA = window.EA || {};
 window.EA.triage = (function () {
-  const MAX_DISPLAY_LEN = 200;
-
   function fmtValue(v) {
     if (v == null) return '';
     if (typeof v === 'number') {
@@ -20,9 +18,13 @@ window.EA.triage = (function () {
     return String(v);
   }
 
-  // Sheet'lerden raporda görüntülenecek benzersiz değerleri toplar.
-  // Şu an sample'lanan iki yeri kapsar: pattern table örnek değer ve
-  // tek-seferlik formül değeri.
+  function categorize(v) {
+    if (typeof v === 'number' && isFinite(v)) {
+      return Number.isInteger(v) ? 'int' : 'dec';
+    }
+    return 'text';
+  }
+
   function collectCandidates(sheets) {
     const seen = new Map();
     function add(v, occurrence) {
@@ -30,7 +32,7 @@ window.EA.triage = (function () {
       const display = fmtValue(v);
       if (display === '') return;
       if (!seen.has(display)) {
-        seen.set(display, { display, occurrences: [] });
+        seen.set(display, { display, category: categorize(v), occurrences: [] });
       }
       seen.get(display).occurrences.push(occurrence);
     }
@@ -46,7 +48,6 @@ window.EA.triage = (function () {
         }
       }
     }
-    // Görünüm sırası: en çok hücrede görülen → en az.
     return [...seen.values()].sort(
       (a, b) => b.occurrences.length - a.occurrences.length
     );
@@ -58,27 +59,9 @@ window.EA.triage = (function () {
     return div.innerHTML;
   }
 
-  function truncate(s, n) {
-    if (s.length <= n) return s;
-    return s.slice(0, n - 1) + '…';
-  }
+  const CAT_ORDER = ['text', 'int', 'dec'];
+  const CAT_LABEL = { text: 'Metin', int: 'Sayısal', dec: 'Ondalıklı' };
 
-  function buildCardEl(item, idx, total) {
-    const card = document.createElement('div');
-    card.className = 'triage-card';
-    const occ = item.occurrences.length;
-    const first = item.occurrences[0];
-    const moreText = occ > 1 ? ` <span class="triage-card-more">(+${occ - 1} daha)</span>` : '';
-    card.innerHTML = `
-      <div class="triage-card-value">${escapeHtml(truncate(item.display, MAX_DISPLAY_LEN))}</div>
-      <div class="triage-card-context">
-        ${occ} hücrede · İlk: <code>${escapeHtml(first.sheet)}!${escapeHtml(first.addr)}</code>${moreText}
-      </div>
-    `;
-    return card;
-  }
-
-  // Promise<Set<string>> — kullanıcının hassas işaretlediği display'ler.
   function runTriage(candidates) {
     return new Promise((resolve) => {
       if (!candidates || candidates.length === 0) {
@@ -86,112 +69,209 @@ window.EA.triage = (function () {
         return;
       }
 
+      const buckets = { text: [], int: [], dec: [] };
+      for (const c of candidates) buckets[c.category].push(c);
+
       const overlay = document.getElementById('triage-overlay');
-      const stack = document.getElementById('triage-stack');
-      const noBtn = document.getElementById('triage-no');
-      const yesBtn = document.getElementById('triage-yes');
-      const skipBtn = document.getElementById('triage-skip-all');
+      const tabsWrap = document.getElementById('triage-tabs');
+      const gridBody = document.getElementById('triage-grid-body');
+      const masterCheck = document.getElementById('triage-master-check');
+      const selectAllBtn = document.getElementById('triage-select-all');
+      const clearAllBtn = document.getElementById('triage-clear-all');
+      const filterInput = document.getElementById('triage-filter');
+      const commitBtn = document.getElementById('triage-commit');
+      const cancelBtn = document.getElementById('triage-cancel');
+      const commitCountEl = document.getElementById('triage-commit-count');
       const progressEl = document.getElementById('triage-progress');
 
-      let idx = 0;
-      const total = candidates.length;
       const sensitive = new Set();
-      let busy = false;
+      let activeCat = null;
 
-      function updateProgress() {
-        progressEl.textContent = `${Math.min(idx + 1, total)} / ${total}`;
+      function visibleItems() {
+        const items = buckets[activeCat] || [];
+        const f = filterInput.value.trim().toLowerCase();
+        if (!f) return items;
+        return items.filter((c) => c.display.toLowerCase().includes(f));
       }
 
-      function showCurrent() {
-        if (idx >= total) {
-          finish();
+      function renderTabs() {
+        tabsWrap.innerHTML = '';
+        for (const cat of CAT_ORDER) {
+          const total = buckets[cat].length;
+          const sel = buckets[cat].filter((c) => sensitive.has(c.display)).length;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'triage-tab';
+          btn.dataset.cat = cat;
+          btn.disabled = total === 0;
+          if (cat === activeCat) btn.classList.add('active');
+          btn.innerHTML = `${CAT_LABEL[cat]} <span class="tab-count">${sel}/${total}</span>`;
+          tabsWrap.appendChild(btn);
+        }
+      }
+
+      function renderGrid() {
+        const visible = visibleItems();
+        gridBody.innerHTML = '';
+        if (visible.length === 0) {
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td colspan="4" class="grid-empty">' +
+            (filterInput.value ? '(filtreyle eşleşen değer yok)' : '(bu kategoride değer yok)') +
+            '</td>';
+          gridBody.appendChild(tr);
+          syncMaster();
           return;
         }
-        updateProgress();
-        stack.innerHTML = '';
-        const card = buildCardEl(candidates[idx], idx, total);
-        // Yeni kart aşağıdan/saydam halde girer.
-        card.classList.add('enter');
-        stack.appendChild(card);
-        // Reflow zorla, sonra enter class'ını kaldır → transition.
-        // requestAnimationFrame ile yumuşak ilerletme.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => card.classList.remove('enter'));
-        });
-        busy = false;
+        const frag = document.createDocumentFragment();
+        for (const c of visible) {
+          const tr = document.createElement('tr');
+          tr.dataset.value = c.display;
+          const isOn = sensitive.has(c.display);
+          if (isOn) tr.classList.add('selected');
+          const occ = c.occurrences.length;
+          const first = c.occurrences[0];
+          const moreText = occ > 1 ? ` <span class="grid-more">(+${occ - 1})</span>` : '';
+          tr.innerHTML = `
+            <td class="col-check"><input type="checkbox" ${isOn ? 'checked' : ''} tabindex="-1" aria-label="Hassas işaretle"></td>
+            <td class="col-value">${escapeHtml(c.display)}</td>
+            <td class="col-loc"><code>${escapeHtml(first.sheet)}!${escapeHtml(first.addr)}</code>${moreText}</td>
+            <td class="col-count">${occ}</td>
+          `;
+          frag.appendChild(tr);
+        }
+        gridBody.appendChild(frag);
+        syncMaster();
       }
 
-      function decide(isSensitive) {
-        if (busy || idx >= total) return;
-        busy = true;
-        const card = stack.querySelector('.triage-card');
-        const item = candidates[idx];
-        if (isSensitive) sensitive.add(item.display);
-        if (!card) {
-          idx++;
-          showCurrent();
+      function syncMaster() {
+        const visible = visibleItems();
+        if (visible.length === 0) {
+          masterCheck.checked = false;
+          masterCheck.indeterminate = false;
+          masterCheck.disabled = true;
           return;
         }
-        card.classList.add(isSensitive ? 'swipe-right' : 'swipe-left');
-        const onEnd = () => {
-          card.removeEventListener('transitionend', onEnd);
-          idx++;
-          showCurrent();
-        };
-        card.addEventListener('transitionend', onEnd);
-        // Güvenlik: transitionend tetiklenmezse 500ms sonra zorla ilerle.
-        setTimeout(() => {
-          if (busy) {
-            card.removeEventListener('transitionend', onEnd);
-            idx++;
-            showCurrent();
-          }
-        }, 500);
+        masterCheck.disabled = false;
+        const sel = visible.filter((c) => sensitive.has(c.display)).length;
+        if (sel === 0) {
+          masterCheck.checked = false;
+          masterCheck.indeterminate = false;
+        } else if (sel === visible.length) {
+          masterCheck.checked = true;
+          masterCheck.indeterminate = false;
+        } else {
+          masterCheck.checked = false;
+          masterCheck.indeterminate = true;
+        }
       }
 
-      function finish() {
+      function updateCounts() {
+        commitCountEl.textContent = String(sensitive.size);
+        progressEl.textContent = `${sensitive.size} / ${candidates.length} hassas`;
+      }
+
+      function setActive(cat) {
+        if (buckets[cat].length === 0) {
+          for (const c of CAT_ORDER) if (buckets[c].length > 0) { cat = c; break; }
+        }
+        activeCat = cat;
+        filterInput.value = '';
+        renderTabs();
+        renderGrid();
+      }
+
+      function toggle(value) {
+        if (sensitive.has(value)) sensitive.delete(value);
+        else sensitive.add(value);
+        const tr = gridBody.querySelector(`tr[data-value="${CSS.escape(value)}"]`);
+        if (tr) {
+          const isOn = sensitive.has(value);
+          tr.classList.toggle('selected', isOn);
+          const cb = tr.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = isOn;
+        }
+        updateCounts();
+        renderTabs();
+        syncMaster();
+      }
+
+      function setAllVisible(state) {
+        const visible = visibleItems();
+        for (const c of visible) {
+          if (state) sensitive.add(c.display);
+          else sensitive.delete(c.display);
+        }
+        updateCounts();
+        renderTabs();
+        renderGrid();
+      }
+
+      function onTabsClick(e) {
+        const btn = e.target.closest('.triage-tab');
+        if (!btn || btn.disabled) return;
+        setActive(btn.dataset.cat);
+      }
+
+      function onGridClick(e) {
+        const tr = e.target.closest('tr[data-value]');
+        if (!tr) return;
+        toggle(tr.dataset.value);
+      }
+
+      function onMasterChange() {
+        setAllVisible(masterCheck.checked);
+      }
+
+      function onSelectAll() { setAllVisible(true); }
+      function onClearAll() { setAllVisible(false); }
+      function onFilter() { renderGrid(); }
+      function onCommit() {
         cleanup();
         overlay.hidden = true;
         overlay.setAttribute('aria-hidden', 'true');
         resolve(sensitive);
       }
-
-      function skipAll() {
-        idx = total;
-        finish();
+      function onCancel() {
+        cleanup();
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+        resolve(new Set());
       }
-
       function onKey(e) {
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          decide(false);
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          decide(true);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          skipAll();
-        }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+        else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onCommit(); }
       }
-
-      function onNo() { decide(false); }
-      function onYes() { decide(true); }
 
       function cleanup() {
-        noBtn.removeEventListener('click', onNo);
-        yesBtn.removeEventListener('click', onYes);
-        skipBtn.removeEventListener('click', skipAll);
+        tabsWrap.removeEventListener('click', onTabsClick);
+        gridBody.removeEventListener('click', onGridClick);
+        masterCheck.removeEventListener('change', onMasterChange);
+        selectAllBtn.removeEventListener('click', onSelectAll);
+        clearAllBtn.removeEventListener('click', onClearAll);
+        filterInput.removeEventListener('input', onFilter);
+        commitBtn.removeEventListener('click', onCommit);
+        cancelBtn.removeEventListener('click', onCancel);
         document.removeEventListener('keydown', onKey);
       }
 
-      noBtn.addEventListener('click', onNo);
-      yesBtn.addEventListener('click', onYes);
-      skipBtn.addEventListener('click', skipAll);
+      tabsWrap.addEventListener('click', onTabsClick);
+      gridBody.addEventListener('click', onGridClick);
+      masterCheck.addEventListener('change', onMasterChange);
+      selectAllBtn.addEventListener('click', onSelectAll);
+      clearAllBtn.addEventListener('click', onClearAll);
+      filterInput.addEventListener('input', onFilter);
+      commitBtn.addEventListener('click', onCommit);
+      cancelBtn.addEventListener('click', onCancel);
       document.addEventListener('keydown', onKey);
 
       overlay.hidden = false;
       overlay.setAttribute('aria-hidden', 'false');
-      showCurrent();
+
+      // En çok değer içeren tab açık başlasın.
+      const initial = [...CAT_ORDER].sort((a, b) => buckets[b].length - buckets[a].length)[0];
+      setActive(initial);
+      updateCounts();
     });
   }
 

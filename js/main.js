@@ -302,7 +302,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'excel-audit-standalone.html';
+      a.download = 'index.html';
       document.body.appendChild(a);
       a.click();
       a.remove();
