@@ -6,7 +6,7 @@
 
 (function () {
   const { readWorkbook, collectSheetMeta, collectFormulas, collectNamedRanges } = window.EA.parse;
-  const { groupByPattern } = window.EA.patterns;
+  const { groupByPattern, compactRanges } = window.EA.patterns;
   const {
     findInconsistencies,
     aggregateConstants,
@@ -15,6 +15,7 @@
     findOneOffFormulas,
     collectInconsistencyOutlierAddrs,
     findReferencedSheets,
+    aggregateTemplatesAcrossSheets,
   } = window.EA.analysis;
   const { buildReport, buildSubsetReport } = window.EA.markdown;
   const { collectCandidates, runTriage } = window.EA.triage;
@@ -139,6 +140,7 @@
       await yieldToUI();
       const namedRanges = collectNamedRanges(wb);
       const externalLinks = aggregateExternalLinks(sheets);
+      const templates = aggregateTemplatesAcrossSheets(sheets, compactRanges);
 
       const candidates = collectCandidates(sheets);
       let sensitive = new Set();
@@ -164,10 +166,11 @@
         namedRanges,
         externalLinks,
         sensitive,
+        templates,
       });
 
       currentMarkdown = md;
-      lastAnalysis = { fileMeta, sheets, sensitive };
+      lastAnalysis = { fileMeta, sheets, sensitive, templates };
       els.resultOutput.textContent = md;
       els.resultBox.hidden = false;
       populateSubsetSelect(sheets);
@@ -296,7 +299,7 @@
 
   function downloadSubset(focusName) {
     if (!focusName || !lastAnalysis) return;
-    const { sheets, sensitive, fileMeta } = lastAnalysis;
+    const { sheets, sensitive, fileMeta, templates } = lastAnalysis;
     const allSheetNames = sheets.map((s) => s.name);
     const focus = sheets.find((s) => s.name === focusName);
     if (!focus) return;
@@ -309,6 +312,7 @@
       focusSheetName: focus.name,
       includedSheetNames,
       sensitive,
+      templates,
     });
 
     const baseName = (fileMeta.fileName || 'rapor').replace(/\.(xlsx|xlsm)$/i, '');

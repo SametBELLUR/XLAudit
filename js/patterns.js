@@ -104,75 +104,117 @@ window.EA.patterns = (function () {
     if (tokens.length === 1 && tokens[0].type === 'RAW') {
       return {
         pattern: '<UZUN FORMÜL>',
-        numericConstants: [],
+        skeleton: '<UZUN FORMÜL>',
+        constants: [],
         sheetRefs: [],
         extRefs: [],
         hasRelativeRow: false,
       };
     }
-    const parts = ['='];
-    const numericConstants = [];
+    const patternParts = ['='];
+    const skeletonParts = ['='];
+    const constants = [];
     const sheetRefs = [];
     const extRefs = [];
     let hasRelativeRow = false;
 
     for (const t of tokens) {
       switch (t.type) {
-        case 'CELL':
+        case 'CELL': {
           if (!t.absRow) hasRelativeRow = true;
-          parts.push(formatCellPattern(t, anchor));
+          const cellStr = formatCellPattern(t, anchor);
+          patternParts.push(cellStr);
+          skeletonParts.push(cellStr);
           break;
+        }
         case 'NUMBER':
-          numericConstants.push(t.text);
-          parts.push(t.text);
+          // Skeleton'da pozisyonel placeholder; pattern strict (eski).
+          patternParts.push(t.text);
+          skeletonParts.push('{const}');
+          constants.push(t.text);
           break;
         case 'SHEET_REF':
           sheetRefs.push(t.text);
-          parts.push(t.text);
+          patternParts.push(t.text);
+          skeletonParts.push(t.text);
           break;
         case 'EXT_REF':
           extRefs.push(t.text);
-          parts.push(t.text);
+          patternParts.push(t.text);
+          skeletonParts.push(t.text);
           break;
         default:
-          parts.push(t.text);
+          patternParts.push(t.text);
+          skeletonParts.push(t.text);
       }
     }
 
     return {
-      pattern: parts.join(''),
-      numericConstants,
+      pattern: patternParts.join(''),
+      skeleton: skeletonParts.join(''),
+      constants,
       sheetRefs,
       extRefs,
       hasRelativeRow,
     };
   }
 
+  // Skeleton + sabitleri kullanarak okunabilir gerçek formülü yeniden
+  // kurar. {const} placeholder'larını sıralı olarak constants[]
+  // değerleriyle değiştirir. Tek-seferlik formüllerde gerçek formülü
+  // göstermek için kullanılır.
+  function reconstructFormula(skeleton, constants) {
+    if (!skeleton) return '';
+    if (!constants || constants.length === 0) return skeleton;
+    let i = 0;
+    return skeleton.replace(/\{const\}/g, () => {
+      const v = constants[i] != null ? constants[i] : '{const}';
+      i++;
+      return v;
+    });
+  }
+
+  // Formülleri SKELETON anahtarına göre gruplar. Her grupta:
+  //   skeleton, cells, cellConstants (Map<addr, [string]>),
+  //   constantHistograms ([Map<value, count>]; pozisyon başına),
+  //   sheetRefs, extRefs, hasRelativeRow, sample.
   function groupByPattern(formulas) {
     const groups = new Map();
     for (const f of formulas) {
       const tokens = tokenizeFormula(f.f);
       const info = patternize(tokens, { row: f.row, col: f.col });
-      let g = groups.get(info.pattern);
+      let g = groups.get(info.skeleton);
       if (!g) {
         g = {
-          pattern: info.pattern,
+          skeleton: info.skeleton,
           cells: [],
-          numericConstants: new Set(),
+          cellConstants: new Map(),
+          constantHistograms: [],
           sheetRefs: new Set(),
           extRefs: new Set(),
           hasRelativeRow: info.hasRelativeRow,
           sample: f,
+          sampleConstants: info.constants.slice(),
         };
-        groups.set(info.pattern, g);
+        // Pozisyon sayısı = skeleton'daki {const} sayısı (ilk hücreden çıkar)
+        for (let i = 0; i < info.constants.length; i++) {
+          g.constantHistograms.push(new Map());
+        }
+        groups.set(info.skeleton, g);
       }
       g.cells.push(f);
-      info.numericConstants.forEach((n) => g.numericConstants.add(n));
+      g.cellConstants.set(f.addr, info.constants);
+      // Histograma yaz (skeleton sabit olduğu için constants.length aynıdır)
+      for (let i = 0; i < info.constants.length && i < g.constantHistograms.length; i++) {
+        const h = g.constantHistograms[i];
+        const v = info.constants[i];
+        h.set(v, (h.get(v) || 0) + 1);
+      }
       info.sheetRefs.forEach((s) => g.sheetRefs.add(s));
       info.extRefs.forEach((e) => g.extRefs.add(e));
     }
+    // Set → array (UI ergonomi)
     for (const g of groups.values()) {
-      g.numericConstants = [...g.numericConstants];
       g.sheetRefs = [...g.sheetRefs];
       g.extRefs = [...g.extRefs];
     }
@@ -212,6 +254,7 @@ window.EA.patterns = (function () {
     patternize,
     groupByPattern,
     compactRanges,
+    reconstructFormula,
     __test__: { TOKEN_RE, colLettersToNum, formatCellPattern },
   };
 })();
