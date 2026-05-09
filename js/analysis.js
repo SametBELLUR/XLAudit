@@ -9,62 +9,6 @@ window.EA = window.EA || {};
 window.EA.analysis = (function () {
   const MAJORITY_THRESHOLD = 0.8;
 
-  // Hücre → skeleton (group key) lookup'u.
-  function buildCellToSkeleton(groups) {
-    const m = new Map();
-    for (const g of groups.values()) {
-      for (const cell of g.cells) m.set(cell.addr, g.skeleton);
-    }
-    return m;
-  }
-
-  // Sütun bazlı tutarsızlık. Skeleton düzeyinde gruplar, aynı skeleton
-  // varsa "tutarlı"; farklı skeleton'lar varsa çoğunluk/sapma/karışık.
-  function findInconsistencies(formulas, groups) {
-    const c2s = buildCellToSkeleton(groups);
-    const byCol = new Map();
-    for (const f of formulas) {
-      if (!byCol.has(f.col)) byCol.set(f.col, []);
-      byCol.get(f.col).push(f);
-    }
-
-    const results = [];
-    for (const [col, cells] of byCol) {
-      const counts = new Map();
-      for (const cell of cells) {
-        const s = c2s.get(cell.addr);
-        if (!counts.has(s)) counts.set(s, []);
-        counts.get(s).push(cell);
-      }
-      const sorted = [...counts.entries()].sort((a, b) => b[1].length - a[1].length);
-      const total = cells.length;
-
-      let state, majority = null, outliers = [];
-      if (sorted.length === 1) {
-        state = 'tutarlı';
-        majority = { skeleton: sorted[0][0], cells: sorted[0][1] };
-      } else if (sorted[0][1].length / total >= MAJORITY_THRESHOLD) {
-        state = 'sapma';
-        majority = { skeleton: sorted[0][0], cells: sorted[0][1] };
-        outliers = sorted.slice(1).map(([s, cs]) => ({ skeleton: s, cells: cs }));
-      } else {
-        state = 'karışık';
-        outliers = sorted.map(([s, cs]) => ({ skeleton: s, cells: cs }));
-      }
-
-      results.push({
-        col,
-        colLetter: cells[0].colLetter,
-        total,
-        skeletonCount: sorted.length,
-        state,
-        majority,
-        outliers,
-      });
-    }
-    return results.sort((a, b) => a.col - b.col);
-  }
-
   // Sheet seviyesinde sayısal sabitleri toplar. Skeleton-keyed gruplarda
   // her hücrenin kendi sabit listesi farklı olabileceği için
   // cellConstants üzerinden hesaplanır (eski "her sabiti grup boyutuyla
@@ -148,13 +92,11 @@ window.EA.analysis = (function () {
   }
 
   // Tek hücreli skeleton grupları (ad-hoc / tek-seferlik formüller).
-  // Tutarsızlık raporunda outlier olarak görünenler hariç bırakılır.
-  function findOneOffFormulas(groups, inconsistencyOutlierAddrs) {
+  function findOneOffFormulas(groups) {
     const out = [];
     for (const g of groups.values()) {
       if (g.cells.length !== 1) continue;
       const cell = g.cells[0];
-      if (inconsistencyOutlierAddrs.has(cell.addr)) continue;
       const constants = g.cellConstants ? g.cellConstants.get(cell.addr) || [] : [];
       out.push({
         addr: cell.addr,
@@ -164,15 +106,6 @@ window.EA.analysis = (function () {
       });
     }
     return out.sort((a, b) => a.addr.localeCompare(b.addr));
-  }
-
-  function collectInconsistencyOutlierAddrs(inconsistencies) {
-    const set = new Set();
-    for (const inc of inconsistencies) {
-      if (inc.state === 'tutarlı') continue;
-      for (const o of inc.outliers) for (const cell of o.cells) set.add(cell.addr);
-    }
-    return set;
   }
 
   function findReferencedSheets(sheet, allSheetNames) {
@@ -312,12 +245,10 @@ window.EA.analysis = (function () {
 
   return {
     MAJORITY_THRESHOLD,
-    findInconsistencies,
     aggregateConstants,
     aggregateExternalLinks,
     aggregateCrossSheetRefs,
     findOneOffFormulas,
-    collectInconsistencyOutlierAddrs,
     findReferencedSheets,
     aggregateTemplatesAcrossSheets,
   };

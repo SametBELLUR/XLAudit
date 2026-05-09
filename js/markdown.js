@@ -62,13 +62,13 @@ window.EA.markdown = (function () {
     const hiddenCount = sheets.length - visibleCount;
     const tplTotal = templates ? templates.length : 0;
     const tplMulti = templates ? templates.filter((t) => t.sheetCount > 1).length : 0;
+    const tplSapma = templates ? templates.filter((t) => t.constantState === 'sapma' || t.constantState === 'karışık').length : 0;
     return [
       '## Genel Özet',
       '',
       `- Toplam sheet: ${sheets.length} (gizli: ${hiddenCount})`,
       `- Toplam formül: ${totals.formulas}`,
-      `- Benzersiz şablon (skeleton): ${tplTotal} (çoklu-sheet: ${tplMulti})`,
-      `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
+      `- Benzersiz şablon (skeleton): ${tplTotal} (çoklu-sheet: ${tplMulti}, sabit sapması: ${tplSapma})`,
       `- Hardcoded sayısal sabit (benzersiz): ${totals.constants}`,
       `- Çapraz sayfa referansı (benzersiz hedef): ${totals.crossSheetTargets}`,
       `- Named range: ${namedRanges?.length ?? 0}`,
@@ -81,8 +81,8 @@ window.EA.markdown = (function () {
     const lines = [
       '## Sheet Listesi',
       '',
-      '| # | Ad | Aralık | Görünürlük | Formül | Şablon | Sapma |',
-      '|---|----|--------|------------|--------|--------|-------|',
+      '| # | Ad | Aralık | Görünürlük | Formül | Şablon |',
+      '|---|----|--------|------------|--------|--------|',
     ];
     sheets.forEach((s, i) => {
       const label = hiddenLabel(s.hidden);
@@ -91,10 +91,7 @@ window.EA.markdown = (function () {
       const safeName = escapeCell(s.name);
       const fc = s.formulas ? s.formulas.length : 0;
       const pc = s.patternGroups ? s.patternGroups.size : 0;
-      const dev = s.inconsistencies
-        ? s.inconsistencies.filter((c) => c.state !== 'tutarlı').length
-        : 0;
-      lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} | ${pc} | ${dev} |`);
+      lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} | ${pc} |`);
     });
     lines.push('');
     return lines.join(NL);
@@ -178,34 +175,6 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderInconsistencies(sheet) {
-    const incs = sheet.inconsistencies ?? [];
-    const flagged = incs.filter((c) => c.state !== 'tutarlı');
-    if (flagged.length === 0) return '';
-
-    const lines = ['### Tutarsızlıklar', ''];
-    for (const inc of flagged) {
-      const head = `**Sütun ${inc.colLetter}** — ${inc.total} formül, ${inc.skeletonCount} farklı skeleton, durum: \`${inc.state}\``;
-      lines.push(`- ${head}`);
-      if (inc.state === 'sapma') {
-        const m = inc.majority;
-        const mRanges = joinTrimmed(compactRanges(m.cells), 80);
-        lines.push(`  - Çoğunluk (${m.cells.length}): \`${escapeInlineCode(m.skeleton)}\` — \`${mRanges}\``);
-        for (const o of inc.outliers) {
-          const oAddrs = joinTrimmed(o.cells.map((c) => c.addr), 100);
-          lines.push(`  - Sapma (${o.cells.length}): \`${escapeInlineCode(o.skeleton)}\` — \`${oAddrs}\``);
-        }
-      } else {
-        for (const o of inc.outliers) {
-          const oRanges = joinTrimmed(compactRanges(o.cells), 80);
-          lines.push(`  - ${o.cells.length}× \`${escapeInlineCode(o.skeleton)}\` — \`${oRanges}\``);
-        }
-      }
-    }
-    lines.push('');
-    return lines.join(NL);
-  }
-
   function renderConstantsTable(sheet) {
     const consts = sheet.constants ?? [];
     if (consts.length === 0) return '';
@@ -278,8 +247,6 @@ window.EA.markdown = (function () {
     const groupCount = sheet.patternGroups?.size ?? 0;
     lines.push(`**Şablon sayısı:** ${groupCount} (ayrıntı için yukarıdaki "Şablonlar" tablosuna bakın)`, '');
 
-    const incBlock = renderInconsistencies(sheet);
-    if (incBlock) lines.push(incBlock);
     const constBlock = renderConstantsTable(sheet);
     if (constBlock) lines.push(constBlock);
     const crossBlock = renderCrossSheetRefs(sheet);
@@ -362,7 +329,7 @@ window.EA.markdown = (function () {
   }
 
   function computeTotals(sheets) {
-    let formulas = 0, patterns = 0, deviationCols = 0, mixedCols = 0;
+    let formulas = 0, patterns = 0;
     const allConstants = new Set();
     const allCrossSheets = new Set();
     for (const s of sheets) {
@@ -370,17 +337,10 @@ window.EA.markdown = (function () {
       patterns += s.patternGroups?.size ?? 0;
       for (const c of s.constants ?? []) allConstants.add(c.value);
       for (const r of s.crossSheetRefs ?? []) allCrossSheets.add(r.targetSheet);
-      for (const inc of s.inconsistencies ?? []) {
-        if (inc.state === 'sapma') deviationCols++;
-        else if (inc.state === 'karışık') mixedCols++;
-      }
     }
     return {
       formulas,
       patterns,
-      deviationCols,
-      mixedCols,
-      inconsistentCols: deviationCols + mixedCols,
       constants: allConstants.size,
       crossSheetTargets: allCrossSheets.size,
     };
@@ -468,7 +428,6 @@ window.EA.markdown = (function () {
       `- Sheet sayısı: ${subset.length}`,
       `- Toplam formül: ${totals.formulas}`,
       `- Şablon: ${subsetTemplates ? subsetTemplates.length : '?'}`,
-      `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
       '',
     ].join(NL);
 

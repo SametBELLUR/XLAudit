@@ -8,12 +8,10 @@
   const { readWorkbook, collectSheetMeta, collectFormulas, collectNamedRanges } = window.EA.parse;
   const { groupByPattern, compactRanges } = window.EA.patterns;
   const {
-    findInconsistencies,
     aggregateConstants,
     aggregateCrossSheetRefs,
     aggregateExternalLinks,
     findOneOffFormulas,
-    collectInconsistencyOutlierAddrs,
     findReferencedSheets,
     aggregateTemplatesAcrossSheets,
   } = window.EA.analysis;
@@ -126,13 +124,11 @@
         const ws = wb.Sheets[s.name];
         s.formulas = collectFormulas(ws);
         s.patternGroups = groupByPattern(s.formulas);
-        s.inconsistencies = findInconsistencies(s.formulas, s.patternGroups);
         s.constants = aggregateConstants(s.patternGroups);
         s.crossSheetRefs = aggregateCrossSheetRefs(s.patternGroups);
-        const outlierAddrs = collectInconsistencyOutlierAddrs(s.inconsistencies);
-        s.oneOffs = findOneOffFormulas(s.patternGroups, outlierAddrs);
+        s.oneOffs = findOneOffFormulas(s.patternGroups);
         console.log(
-          `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
+          `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} skeleton`
         );
       }
 
@@ -242,16 +238,7 @@
     els.downloadBtn.addEventListener('click', () => {
       if (!currentMarkdown || !currentFile) return;
       const baseName = currentFile.name.replace(/\.(xlsx|xlsm)$/i, '');
-      const fname = `${baseName}-denetim.md`;
-      const blob = new Blob([currentMarkdown], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadReport(currentMarkdown, `${baseName}-denetim`);
     });
 
     const subsetSelect = document.getElementById('subset-sheet-select');
@@ -278,6 +265,24 @@
     if (standaloneBtn) {
       standaloneBtn.addEventListener('click', () => downloadStandalone(standaloneBtn));
     }
+  }
+
+  // Aktif format selectbox'a göre dosyayı indirir.
+  // Hem ana rapor hem alt-küme indirmesi bu fonksiyonu kullanır.
+  function downloadReport(content, baseName) {
+    const fmtSelect = document.getElementById('download-format-select');
+    const fmt = fmtSelect && fmtSelect.value === 'txt' ? 'txt' : 'md';
+    const mime = fmt === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+    const fname = `${baseName}.${fmt}`;
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function populateSubsetSelect(sheets) {
@@ -317,16 +322,7 @@
 
     const baseName = (fileMeta.fileName || 'rapor').replace(/\.(xlsx|xlsm)$/i, '');
     const safeFocus = focus.name.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40);
-    const fname = `${baseName}-${safeFocus}-altkume.md`;
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadReport(md, `${baseName}-${safeFocus}-altkume`);
     setStatus(`Alt küme indirildi: ${focus.name} + ${refs.length} bağlı sheet.`);
   }
 
