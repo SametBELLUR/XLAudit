@@ -1,6 +1,7 @@
 // Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
 
 import { readWorkbook, collectSheetMeta, collectFormulas } from './parse.js';
+import { groupByPattern } from './patterns.js';
 import { buildReport } from './markdown.js';
 
 const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
@@ -106,7 +107,10 @@ async function runAnalysis() {
       await yieldToUI();
       const ws = wb.Sheets[s.name];
       s.formulas = collectFormulas(ws);
-      console.log(`[ExcelAudit] ${s.name}: ${s.formulas.length} formül`);
+      s.patternGroups = groupByPattern(s.formulas);
+      console.log(
+        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern`
+      );
     }
 
     setStatus('Markdown raporu oluşturuluyor…');

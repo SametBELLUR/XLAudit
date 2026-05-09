@@ -1,6 +1,7 @@
 // Markdown rapor montajı. Her milestone'da bu modül büyür.
 
 import { hiddenLabel } from './parse.js';
+import { compactRanges } from './patterns.js';
 
 const NL = '\n';
 
@@ -25,30 +26,23 @@ function fmtValue(v) {
   return String(v);
 }
 
-function typeLabel(t) {
-  switch (t) {
-    case 'n': return 'sayı';
-    case 's': return 'metin';
-    case 'b': return 'mantık';
-    case 'd': return 'tarih';
-    case 'e': return 'hata';
-    default:  return t ?? '';
-  }
+function joinTrimmed(arr, max = 80) {
+  const s = arr.join(', ');
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
 function renderHeader({ fileName, fileSize, fileType }) {
-  const lines = [
+  return [
     `# Excel Denetim Raporu: ${fileName}`,
     '',
     `**Üretim tarihi:** ${new Date().toISOString()}  `,
     `**Dosya tipi:** ${fileType}  `,
     `**Dosya boyutu:** ${fmtBytes(fileSize)}`,
     '',
-  ];
-  return lines.join(NL);
+  ].join(NL);
 }
 
-function renderSummary(sheets, totalFormulas) {
+function renderSummary(sheets, totalFormulas, totalPatterns) {
   const visibleCount = sheets.filter((s) => s.hidden === 0).length;
   const hiddenCount = sheets.length - visibleCount;
   return [
@@ -56,6 +50,7 @@ function renderSummary(sheets, totalFormulas) {
     '',
     `- Toplam sheet: ${sheets.length} (gizli: ${hiddenCount})`,
     `- Toplam formül: ${totalFormulas}`,
+    `- Benzersiz formül paterni: ${totalPatterns}`,
     '',
   ].join(NL);
 }
@@ -64,8 +59,8 @@ function renderSheetListing(sheets) {
   const lines = [
     '## Sheet Listesi',
     '',
-    '| # | Ad | Aralık | Görünürlük | Formül Sayısı |',
-    '|---|----|--------|------------|---------------|',
+    '| # | Ad | Aralık | Görünürlük | Formül | Patern |',
+    '|---|----|--------|------------|--------|--------|',
   ];
   sheets.forEach((s, i) => {
     const label = hiddenLabel(s.hidden);
@@ -73,7 +68,8 @@ function renderSheetListing(sheets) {
     const range = s.ref ?? '_(boş)_';
     const safeName = escapeCell(s.name);
     const fc = s.formulas ? s.formulas.length : 0;
-    lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} |`);
+    const pc = s.patternGroups ? s.patternGroups.size : 0;
+    lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} | ${pc} |`);
   });
   lines.push('');
   return lines.join(NL);
@@ -90,18 +86,24 @@ function renderSheetSection(sheet) {
   ];
 
   const formulas = sheet.formulas ?? [];
-  if (formulas.length === 0) {
+  const groups = sheet.patternGroups;
+  if (!formulas.length || !groups || groups.size === 0) {
     lines.push('_Bu sheet\'te formül bulunamadı._', '');
     return lines.join(NL);
   }
 
-  lines.push(`### Formüller (${formulas.length})`, '');
-  lines.push('| Hücre | Formül | Tip | Değer |');
-  lines.push('|-------|--------|-----|-------|');
-  for (const f of formulas) {
-    const formula = '`=' + escapeCell(f.f) + '`';
-    const value = escapeCell(fmtValue(f.v));
-    lines.push(`| ${f.addr} | ${formula} | ${typeLabel(f.t)} | ${value} |`);
+  const sortedGroups = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
+
+  lines.push(`### Formül Desenleri (${groups.size} benzersiz, ${formulas.length} formül)`, '');
+  lines.push('| Aralık | Patern | Adet | Örnek Değer | Sabit Değerler |');
+  lines.push('|--------|--------|------|-------------|----------------|');
+  for (const g of sortedGroups) {
+    const ranges = compactRanges(g.cells);
+    const rangeStr = joinTrimmed(ranges, 60);
+    const sampleVal = escapeCell(fmtValue(g.sample.v));
+    const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
+    const patternEsc = escapeCell(g.pattern).replace(/`/g, '\\`');
+    lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
   }
   lines.push('');
   return lines.join(NL);
@@ -118,9 +120,10 @@ function renderVbaPlaceholder() {
 
 export function buildReport({ fileMeta, sheets }) {
   const totalFormulas = sheets.reduce((n, s) => n + (s.formulas?.length ?? 0), 0);
+  const totalPatterns = sheets.reduce((n, s) => n + (s.patternGroups?.size ?? 0), 0);
   const parts = [
     renderHeader(fileMeta),
-    renderSummary(sheets, totalFormulas),
+    renderSummary(sheets, totalFormulas, totalPatterns),
     renderSheetListing(sheets),
     '---',
     '',

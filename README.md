@@ -39,7 +39,8 @@ Tek sayfa, vanilla JS (ES modules). Build adımı yok, npm yok.
 ├── css/styles.css   # Sade CSS
 ├── js/
 │   ├── main.js      # DOM olayları + pipeline orkestrasyonu
-│   ├── parse.js     # SheetJS workbook + sheet metadata
+│   ├── parse.js     # SheetJS workbook + sheet metadata + formül toplama
+│   ├── patterns.js  # Tokenizer + patternize + groupByPattern + compactRanges
 │   └── markdown.js  # Markdown rapor montajı
 └── README.md
 ```
@@ -48,5 +49,6 @@ Tek sayfa, vanilla JS (ES modules). Build adımı yok, npm yok.
 
 - **M1 — İskelet + dosya yükleme:** Drag-drop, SheetJS yükleme, sheet listesi.
 - **M2 — Düz formül listesi:** Sheet başına `Hücre | Formül | Tip | Değer` tablosu, async yield ile UI bloklamadan ilerleme.
-- M3–M5 (yakında): patern motoru, tutarsızlık, named ranges/external links/gizli sayfalar.
+- **M3 — Patern motoru:** Tek-pas regex tokenizer, anchor-bazlı patern üretimi (`B{row}*1.18`), sütun-bazlı range compaction (`C2:C100`). Sheet başına tablo formül sayısı yerine patern özeti gösterir.
+- M4–M5 (yakında): tutarsızlık, named ranges/external links/gizli sayfalar.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).
