@@ -52,5 +52,5 @@ Tek sayfa, vanilla JS (ES modules). Build adımı yok, npm yok.
 - **M2 — Düz formül listesi:** Sheet başına `Hücre | Formül | Tip | Değer` tablosu, async yield ile UI bloklamadan ilerleme.
 - **M3 — Patern motoru:** Tek-pas regex tokenizer, anchor-bazlı patern üretimi (`B{row}*1.18`), sütun-bazlı range compaction (`C2:C100`). Sheet başına tablo formül sayısı yerine patern özeti gösterir.
 - **M4 — Tutarsızlık + sabitler + cross-sheet:** Sütun bazında çoğunluk patern tespiti (eşik %80), sapma/karışık etiketleme, hardcoded sayısal sabit ve sayfa-arası referans tabloları, tek-seferlik formül listesi.
-- M5 (yakında): named ranges, external links, gizli sayfalar.
+- **M5 — Named ranges, external links, gizli sayfalar:** Workbook meta toplulaştırması — Named Range tablosu (workbook/sheet kapsam), External Link tablosu (`[file.xlsx]` paterninden), Gizli Öğeler bölümü, Genel Özet'te toplulaştırılmış sayılar.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).

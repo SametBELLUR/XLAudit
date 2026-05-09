@@ -1,11 +1,17 @@
 // Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
 
-import { readWorkbook, collectSheetMeta, collectFormulas } from './parse.js';
+import {
+  readWorkbook,
+  collectSheetMeta,
+  collectFormulas,
+  collectNamedRanges,
+} from './parse.js';
 import { groupByPattern } from './patterns.js';
 import {
   findInconsistencies,
   aggregateConstants,
   aggregateCrossSheetRefs,
+  aggregateExternalLinks,
   findOneOffFormulas,
   collectInconsistencyOutlierAddrs,
 } from './analysis.js';
@@ -125,6 +131,11 @@ async function runAnalysis() {
       );
     }
 
+    setStatus('Workbook seviyesinde meta toplanıyor…');
+    await yieldToUI();
+    const namedRanges = collectNamedRanges(wb);
+    const externalLinks = aggregateExternalLinks(sheets);
+
     setStatus('Markdown raporu oluşturuluyor…');
     await yieldToUI();
     const md = buildReport({
@@ -134,6 +145,8 @@ async function runAnalysis() {
         fileType: fileType(currentFile),
       },
       sheets,
+      namedRanges,
+      externalLinks,
     });
 
     currentMarkdown = md;

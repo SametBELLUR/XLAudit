@@ -47,6 +47,20 @@ function getCell(ws, r, c, addr) {
   return ws[addr];
 }
 
+// Workbook seviyesindeki named range tanımlarını çıkarır.
+// SheetJS'in Names yapısı: [{ Name, Ref, Sheet?, Comment? }]
+// Sheet undefined ise workbook geneli; sayı ise o sayfa indeksine bağlı.
+export function collectNamedRanges(wb) {
+  const names = wb.Workbook?.Names ?? [];
+  const sheetNames = wb.SheetNames ?? [];
+  return names.map((n) => ({
+    name: n.Name,
+    ref: n.Ref ?? '',
+    scope: typeof n.Sheet === 'number' ? sheetNames[n.Sheet] : null, // null = workbook geneli
+    comment: n.Comment ?? '',
+  }));
+}
+
 // Bir worksheet'in tüm formül hücrelerini toplar.
 // Dönüş: [{ addr, row(1-idx), col(0-idx), colLetter, f, v, t }]
 export function collectFormulas(ws) {

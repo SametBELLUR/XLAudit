@@ -87,6 +87,44 @@ export function aggregateConstants(groups) {
     .sort((a, b) => b.cellCount - a.cellCount);
 }
 
+// External link'leri (formüldeki [file.xlsx] paterni) toplar.
+// Workbook seviyesinde aggregate edilebilir (tüm sheet'lerin gruplarını
+// concat ederek). Dönüş: [{ target, cellCount, patternCount,
+// samplePatterns, sheetsContainingIt }]
+export function aggregateExternalLinks(sheets) {
+  const map = new Map();
+  for (const s of sheets) {
+    const groups = s.patternGroups;
+    if (!groups) continue;
+    for (const g of groups.values()) {
+      for (const ext of g.extRefs) {
+        let entry = map.get(ext);
+        if (!entry) {
+          entry = {
+            target: ext,
+            cellCount: 0,
+            patterns: new Set(),
+            sheets: new Set(),
+          };
+          map.set(ext, entry);
+        }
+        entry.cellCount += g.cells.length;
+        entry.patterns.add(g.pattern);
+        entry.sheets.add(s.name);
+      }
+    }
+  }
+  return [...map.values()]
+    .map((e) => ({
+      target: e.target.replace(/^\[/, '').replace(/\]$/, ''),
+      cellCount: e.cellCount,
+      patternCount: e.patterns.size,
+      samplePatterns: [...e.patterns].slice(0, 3),
+      sheets: [...e.sheets],
+    }))
+    .sort((a, b) => b.cellCount - a.cellCount);
+}
+
 // Sheet'ler arası referansları toplar.
 // Dönüş: [{ targetSheet, cellCount, patternCount, samplePatterns: [...] }]
 export function aggregateCrossSheetRefs(groups) {

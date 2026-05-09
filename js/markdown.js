@@ -46,7 +46,7 @@ function renderHeader({ fileName, fileSize, fileType }) {
   ].join(NL);
 }
 
-function renderSummary(sheets, totals) {
+function renderSummary(sheets, totals, namedRanges, externalLinks) {
   const visibleCount = sheets.filter((s) => s.hidden === 0).length;
   const hiddenCount = sheets.length - visibleCount;
   return [
@@ -58,6 +58,8 @@ function renderSummary(sheets, totals) {
     `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
     `- Hardcoded sayısal sabit (benzersiz): ${totals.constants}`,
     `- Çapraz sayfa referansı (benzersiz hedef): ${totals.crossSheetTargets}`,
+    `- Named range: ${namedRanges?.length ?? 0}`,
+    `- External link (benzersiz dosya): ${externalLinks?.length ?? 0}`,
     '',
   ].join(NL);
 }
@@ -215,6 +217,68 @@ function renderSheetSection(sheet) {
   return lines.join(NL);
 }
 
+function renderNamedRanges(namedRanges) {
+  if (!namedRanges || namedRanges.length === 0) {
+    return ['## Named Ranges', '', '_Named range tanımı bulunamadı._', ''].join(NL);
+  }
+  const lines = [
+    '## Named Ranges',
+    '',
+    '| İsim | Referans | Kapsam | Yorum |',
+    '|------|----------|--------|-------|',
+  ];
+  for (const n of namedRanges) {
+    const scope = n.scope ? `Sheet: ${escapeCell(n.scope)}` : 'Çalışma kitabı geneli';
+    const ref = n.ref ? '`' + escapeCell(n.ref) + '`' : '';
+    lines.push(`| ${escapeCell(n.name)} | ${ref} | ${scope} | ${escapeCell(n.comment)} |`);
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderExternalLinks(externalLinks) {
+  if (!externalLinks || externalLinks.length === 0) {
+    return ['## External Links', '', '_External link bulunamadı._', ''].join(NL);
+  }
+  const lines = [
+    '## External Links',
+    '',
+    '| Hedef | Hücre Adedi | Patern Sayısı | Görüldüğü Sheet\'ler | Örnek Patern |',
+    '|-------|-------------|---------------|---------------------|---------------|',
+  ];
+  for (const e of externalLinks) {
+    const sample = e.samplePatterns[0] ? '`' + escapeInlineCode(e.samplePatterns[0]) + '`' : '';
+    const sheetList = joinTrimmed(e.sheets, 60);
+    lines.push(
+      `| \`${escapeCell(e.target)}\` | ${e.cellCount} | ${e.patternCount} | ${escapeCell(sheetList)} | ${sample} |`
+    );
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderHiddenItems(sheets) {
+  const hidden = sheets.filter((s) => s.hidden !== 0);
+  if (hidden.length === 0) {
+    return ['## Gizli Öğeler', '', '_Gizli sheet bulunamadı._', ''].join(NL);
+  }
+  const lines = [
+    '## Gizli Öğeler',
+    '',
+    '| Sheet | Görünürlük | Aralık | Formül |',
+    '|-------|------------|--------|--------|',
+  ];
+  for (const s of hidden) {
+    const label = hiddenLabel(s.hidden);
+    const fc = s.formulas?.length ?? 0;
+    lines.push(
+      `| ${escapeCell(s.name)} | **${label.toUpperCase()}** | \`${s.ref ?? '(boş)'}\` | ${fc} |`
+    );
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
 function renderVbaPlaceholder() {
   return [
     '## VBA Makroları',
@@ -249,15 +313,20 @@ function computeTotals(sheets) {
   };
 }
 
-export function buildReport({ fileMeta, sheets }) {
+export function buildReport({ fileMeta, sheets, namedRanges, externalLinks }) {
   const totals = computeTotals(sheets);
   const parts = [
     renderHeader(fileMeta),
-    renderSummary(sheets, totals),
+    renderSummary(sheets, totals, namedRanges, externalLinks),
     renderSheetListing(sheets),
     '---',
     '',
     ...sheets.map(renderSheetSection),
+    '---',
+    '',
+    renderNamedRanges(namedRanges),
+    renderExternalLinks(externalLinks),
+    renderHiddenItems(sheets),
     renderVbaPlaceholder(),
   ];
   return parts.filter((p) => p !== '').join(NL);
