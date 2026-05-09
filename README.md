@@ -45,6 +45,12 @@ Tek sayfa, vanilla JS (ES modules). Build adımı yok, npm yok.
 └── README.md
 ```
 
+## Lisans
+
+Bu proje **PolyForm Noncommercial 1.0.0** lisansı altında yayımlanmıştır (bkz. [`LICENSE`](LICENSE)). Kişisel, eğitsel, araştırma ve kâr amacı gütmeyen kuruluşlar için kullanım serbesttir; **ticari kullanım yasaktır**. Ticari lisans için yazara başvurun.
+
+`SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0`
+
 ## Sürüm Günlüğü
 
 - **M1 — İskelet + dosya yükleme:** Drag-drop, SheetJS yükleme, sheet listesi.

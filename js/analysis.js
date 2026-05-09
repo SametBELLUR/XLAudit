@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Samet Bellur
+//
 // Sheet ve workbook seviyesinde tutarsızlık, sabit ve çapraz referans
 // analizi. Patern gruplarından beslenir; ham formülleri yeniden
 // tokenize etmez. IIFE + global namespace (window.EA.analysis).
