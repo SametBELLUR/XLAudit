@@ -50,9 +50,15 @@
     <section id="result-box" class="result-box" hidden>
       <div class="result-actions">
         <button id="copy-btn" type="button">Panoya Kopyala</button>
-        <button id="download-btn" type="button">Markdown'ı İndir</button>
+        <label class="result-format" title="İndirme formatı: .md (Markdown) veya .txt (düz metin). İçerik aynıdır, sadece dosya uzantısı ve MIME tipi değişir.">
+          <select id="download-format-select" aria-label="İndirme formatı">
+            <option value="md" selected>.md</option>
+            <option value="txt">.txt</option>
+          </select>
+          <button id="download-btn" type="button">Raporu İndir</button>
+        </label>
         <span class="result-actions-sep">·</span>
-        <label class="result-subset" title="Seçtiğiniz sheet ve onun çapraz referans verdiği sheet'leri içeren odaklı, daha kısa bir Markdown indirir.">
+        <label class="result-subset" title="Seçtiğiniz sheet ve onun çapraz referans verdiği sheet'leri içeren odaklı, daha kısa bir rapor indirir.">
           <span class="result-subset-label">Alt küme:</span>
           <select id="subset-sheet-select" disabled>
             <option value="">— sheet seç —</option>

@@ -21,8 +21,16 @@ GitHub Pages veya `python -m http.server 8000` ile de çalışır; sadece taray�
 1. `.xlsx` veya `.xlsm` dosyanızı dropzone'a sürükleyin (veya "dosya seçin").
 2. **Analiz Et** butonuna basın.
 3. **Hassas veri triajı:** raporda görünecek benzersiz değerler 3 sekmeli (Metin / Sayısal / Ondalıklı) bir grid'de gelir; gizlemek istediklerinizi tek tek ya da "Hepsini Seç" ile işaretleyin → **Bitti**.
-4. Üretilen Markdown'ı **Panoya Kopyala** veya **Markdown'ı İndir** ile alın, LLM'inize yapıştırın.
+4. Üretilen raporu **Panoya Kopyala** veya **Raporu İndir** (.md / .txt seçilebilir) ile alın, LLM'inize yapıştırın.
 5. Tek bir sheet ve onun çapraz referans verdiği sheet'leri içeren odaklı bir alt-küme almak için: result alanındaki **Alt küme** seçicisinden sheet'i seçip **Sheet+bağlıları indir**.
+
+### LLM Prompt Şablonu
+
+LLM'inize ne sormak istediğinizden emin değilseniz, hazır bir prompt şablonu var: [`PROMPT.md`](PROMPT.md). Bu şablon LLM'e iki bölümlü bir analiz yaptırır:
+1. **Genel iş kuralları** — workbook'un amacı, baskın şablonlar, sheet'ler arası akış, anomaliler
+2. **Sheet bazlı analiz** — her sheet için görevi, önemli formüller, dikkat noktaları
+
+`PROMPT.md`'nin içeriğini kopyalayın, sonuna ürettiğiniz Markdown raporu yapıştırın, LLM'e gönderin.
 
 ## Bağımlılıklar
 
@@ -40,12 +48,13 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 .
 ├── LICENSE          # PolyForm Noncommercial 1.0.0
 ├── README.md
+├── PROMPT.md        # LLM analiz prompt şablonu
 ├── index.html       # HTML iskelet, CDN script, modül yükleme sırası
 ├── css/styles.css   # Sade CSS (sistem font, max-width 900px)
 └── js/
     ├── parse.js     # SheetJS workbook + sheet metadata + formül toplama
-    ├── patterns.js  # Tokenizer + patternize + groupByPattern + compactRanges
-    ├── analysis.js  # Tutarsızlık + sabitler + sayfa-arası ref + alt-küme yardımcıları
+    ├── patterns.js  # Tokenizer + skeleton patternize + groupByPattern + compactRanges
+    ├── analysis.js  # Sabitler + sayfa-arası ref + workbook-seviyesi şablon aggregation
     ├── triage.js    # Hassas veri triaj modali (sekmeli grid)
     ├── markdown.js  # Markdown rapor montajı (full + alt-küme)
     └── main.js      # DOM olayları + pipeline + standalone bundle indirme
@@ -55,11 +64,14 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 
 - **M1 — İskelet + dosya yükleme:** Drag-drop, SheetJS yükleme, sheet listesi.
 - **M2 — Düz formül listesi:** Sheet başına `Hücre | Formül | Tip | Değer` tablosu, async yield ile UI bloklamadan ilerleme.
-- **M3 — Patern motoru:** Tek-pas regex tokenizer, anchor-bazlı patern üretimi (`B{row}*1.18`), sütun-bazlı range compaction (`C2:C100`). Sheet başına patern özeti.
-- **M4 — Tutarsızlık + sabitler + cross-sheet:** Sütun bazında çoğunluk patern tespiti (eşik %80), sapma/karışık etiketleme, hardcoded sayısal sabit ve sayfa-arası referans tabloları, tek-seferlik formül listesi.
+- **M3 — Patern motoru:** Tek-pas regex tokenizer, anchor-bazlı patern üretimi, sütun-bazlı range compaction (`C2:C100`).
+- **M4 — Sabitler + cross-sheet:** Hardcoded sayısal sabit ve sayfa-arası referans tabloları, tek-seferlik formül listesi.
 - **M5 — Named ranges, external links, gizli sayfalar:** Workbook meta toplulaştırması ve genel rapor şekli.
 - **Hassas veri triajı:** sekmeli (Metin/Sayısal/Ondalıklı) grid + filtre + toplu seçim; işaretlenenler raporda `***`.
 - **Sheet alt-kümesi:** seçilen sheet ve doğrudan referans verdiği sheet'leri içeren odaklı, kısa Markdown indirme.
 - **Standalone bundle butonu:** kaynaktan canlı CSS+JS inline tek-dosya `index.html` üretir; repoda generated dosya tutulmuyor.
 - **PolyForm Noncommercial 1.0.0 lisansı:** ticari kullanım yasak; tüm kaynak dosyalarda SPDX header.
+- **Semantik sıkıştırma:** Tüm sayısal sabitler skeleton'da `{const}` ile abstrakte; aynı skeleton'ı paylaşan formüller workbook seviyesinde tek "Şablonlar" tablosunda; sabit dağılımı ve outlier hücre tespiti otomatik. Per-column tutarsızlık analizi kaldırıldı (Şablonlar tablosu işlevini daha keskin yapıyor).
+- **İndirme formatı:** `.md` (varsayılan) veya `.txt` selectbox'tan seçilir.
+- **Prompt şablonu:** [`PROMPT.md`](PROMPT.md) — LLM'e raporu yorumlatmak için hazır 2 bölümlü (genel iş kuralları + sheet bazlı analiz) şablon.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).

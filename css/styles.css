@@ -159,6 +159,33 @@ button:disabled {
   flex-wrap: wrap;
 }
 .result-actions-sep { color: var(--border-strong); }
+
+.result-format {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+.result-format select {
+  border: 0;
+  background: var(--bg);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  border-right: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.result-format select:focus { outline: none; background: var(--accent-soft); }
+.result-format button {
+  border: 0;
+  border-radius: 0;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
 .result-subset {
   display: inline-flex;
   align-items: center;
