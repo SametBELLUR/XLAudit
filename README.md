@@ -1,3 +1,7 @@
+**🇹🇷 Türkçe** · [🇬🇧 English](README.en.md)
+
+---
+
 # Excel Denetim Raporu Üreticisi
 
 `.xlsx` ve `.xlsm` dosyalarını tarayıcıda işleyip LLM ile denetim için yapılandırılmış bir Markdown raporu üretir. **Dosya hiçbir sunucuya gönderilmez.**
@@ -47,7 +51,8 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 ```
 .
 ├── LICENSE          # PolyForm Noncommercial 1.0.0
-├── README.md
+├── README.md        # Türkçe (varsayılan)
+├── README.en.md     # English
 ├── PROMPT.md        # LLM analiz prompt şablonu
 ├── index.html       # HTML iskelet, CDN script, modül yükleme sırası
 ├── css/styles.css   # Sade CSS (sistem font, max-width 900px)
