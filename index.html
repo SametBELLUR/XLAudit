@@ -47,6 +47,14 @@
       <div class="result-actions">
         <button id="copy-btn" type="button">Panoya Kopyala</button>
         <button id="download-btn" type="button">Markdown'ı İndir</button>
+        <span class="result-actions-sep">·</span>
+        <label class="result-subset" title="Seçtiğiniz sheet ve onun çapraz referans verdiği sheet'leri içeren odaklı, daha kısa bir Markdown indirir.">
+          <span class="result-subset-label">Alt küme:</span>
+          <select id="subset-sheet-select" disabled>
+            <option value="">— sheet seç —</option>
+          </select>
+          <button id="subset-download-btn" type="button" disabled>Sheet+bağlıları indir</button>
+        </label>
       </div>
       <pre id="result-output" class="result-output"></pre>
     </section>

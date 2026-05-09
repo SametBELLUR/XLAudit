@@ -154,6 +154,29 @@ window.EA.analysis = (function () {
     return set;
   }
 
+  // Verilen sheet'in formüllerinin doğrudan referans verdiği diğer sheet
+  // adlarını döner. allSheetNames verilirse workbook'ta gerçekten
+  // bulunmayan referanslar (yazım hatası vb.) elenir. Self-reference dahil
+  // edilmez.
+  function findReferencedSheets(sheet, allSheetNames) {
+    const refs = new Set();
+    if (!sheet.patternGroups) return [];
+    for (const g of sheet.patternGroups.values()) {
+      for (const rawRef of g.sheetRefs) {
+        let name = rawRef.replace(/!$/, '');
+        // Tırnaklı sheet adı: 'My Sheet'! → My Sheet, '' kaçışı → '
+        if (name.startsWith("'") && name.endsWith("'")) {
+          name = name.slice(1, -1).replace(/''/g, "'");
+        }
+        if (!name) continue;
+        if (name === sheet.name) continue;
+        if (allSheetNames && !allSheetNames.includes(name)) continue;
+        refs.add(name);
+      }
+    }
+    return [...refs];
+  }
+
   return {
     MAJORITY_THRESHOLD,
     findInconsistencies,
@@ -162,5 +185,6 @@ window.EA.analysis = (function () {
     aggregateCrossSheetRefs,
     findOneOffFormulas,
     collectInconsistencyOutlierAddrs,
+    findReferencedSheets,
   };
 })();
