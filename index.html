@@ -52,11 +52,41 @@
     </section>
   </main>
 
+  <div id="triage-overlay" class="triage-overlay" hidden aria-hidden="true">
+    <div class="triage-modal" role="dialog" aria-labelledby="triage-title">
+      <header class="triage-header">
+        <span id="triage-title" class="triage-title">Hassas veri kontrolü</span>
+        <span class="triage-progress" id="triage-progress">0 / 0</span>
+      </header>
+      <p class="triage-question">
+        Bu değer <strong>hassas mı</strong>? Evet derseniz raporda <code>***</code> ile gizlenir.
+      </p>
+      <div class="triage-stack" id="triage-stack" aria-live="polite"></div>
+      <div class="triage-actions">
+        <button id="triage-no" class="triage-btn triage-btn-no" type="button" aria-label="Hayır, hassas değil">
+          <span class="triage-btn-icon">✕</span>
+          <span class="triage-btn-label">HAYIR</span>
+          <span class="triage-btn-sub">gizleme</span>
+        </button>
+        <button id="triage-yes" class="triage-btn triage-btn-yes" type="button" aria-label="Evet, hassas">
+          <span class="triage-btn-icon">✓</span>
+          <span class="triage-btn-label">EVET</span>
+          <span class="triage-btn-sub">hassas, gizle</span>
+        </button>
+      </div>
+      <div class="triage-footer">
+        <span class="triage-hint">← Hayır · Evet → · Esc: Bitir</span>
+        <button id="triage-skip-all" class="triage-skip" type="button">Bu kadar yeter, kalanları gizleme</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
           onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
   <script src="js/parse.js"></script>
   <script src="js/patterns.js"></script>
   <script src="js/analysis.js"></script>
+  <script src="js/triage.js"></script>
   <script src="js/markdown.js"></script>
   <script src="js/main.js"></script>
 </body>
