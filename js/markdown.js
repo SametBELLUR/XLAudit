@@ -6,7 +6,7 @@
 window.EA = window.EA || {};
 window.EA.markdown = (function () {
   const { hiddenLabel } = window.EA.parse;
-  const { compactRanges } = window.EA.patterns;
+  const { compactRanges, reconstructFormula } = window.EA.patterns;
 
   const NL = '\n';
 
@@ -35,7 +35,6 @@ window.EA.markdown = (function () {
     return String(v);
   }
 
-  // Triage'da işaretlenen değerleri maskeler. Set boş/yoksa normal format.
   function maskedValue(v, sensitive) {
     const f = fmtValue(v);
     if (sensitive && sensitive.has(f)) return '`***`';
@@ -58,15 +57,17 @@ window.EA.markdown = (function () {
     ].join(NL);
   }
 
-  function renderSummary(sheets, totals, namedRanges, externalLinks) {
+  function renderSummary(sheets, totals, namedRanges, externalLinks, templates) {
     const visibleCount = sheets.filter((s) => s.hidden === 0).length;
     const hiddenCount = sheets.length - visibleCount;
+    const tplTotal = templates ? templates.length : 0;
+    const tplMulti = templates ? templates.filter((t) => t.sheetCount > 1).length : 0;
     return [
       '## Genel Özet',
       '',
       `- Toplam sheet: ${sheets.length} (gizli: ${hiddenCount})`,
       `- Toplam formül: ${totals.formulas}`,
-      `- Benzersiz formül paterni: ${totals.patterns}`,
+      `- Benzersiz şablon (skeleton): ${tplTotal} (çoklu-sheet: ${tplMulti})`,
       `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
       `- Hardcoded sayısal sabit (benzersiz): ${totals.constants}`,
       `- Çapraz sayfa referansı (benzersiz hedef): ${totals.crossSheetTargets}`,
@@ -80,7 +81,7 @@ window.EA.markdown = (function () {
     const lines = [
       '## Sheet Listesi',
       '',
-      '| # | Ad | Aralık | Görünürlük | Formül | Patern | Sapma |',
+      '| # | Ad | Aralık | Görünürlük | Formül | Şablon | Sapma |',
       '|---|----|--------|------------|--------|--------|-------|',
     ];
     sheets.forEach((s, i) => {
@@ -99,23 +100,79 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderPatternTable(sheet, sensitive) {
-    const groups = sheet.patternGroups;
-    if (!groups || groups.size === 0) return '';
-    const sorted = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
+  // Pozisyonel histogram'ı insan-okur yazar string'e çevirir.
+  // Tek pozisyon, tek değer → "1.18 (100)"
+  // Tek pozisyon, çok değer → "1.18 (98), 1.20 (2) ⚠"
+  // Çok pozisyon → "p1: 1.5 (50); p2: 2 (50)"
+  function fmtHistograms(mergedHistograms, positionStates) {
+    if (!mergedHistograms || mergedHistograms.length === 0) return '';
+    const partLabels = mergedHistograms.length > 1;
+    const parts = [];
+    for (let i = 0; i < mergedHistograms.length; i++) {
+      const h = mergedHistograms[i];
+      const sorted = [...h.entries()].sort((a, b) => b[1] - a[1]);
+      const pieces = sorted.map(([v, c]) => `${escapeCell(v)} (${c})`);
+      let segment = pieces.join(', ');
+      if (positionStates && positionStates[i] && positionStates[i] !== 'tutarlı') {
+        segment += ' ⚠';
+      }
+      parts.push(partLabels ? `p${i + 1}: ${segment}` : segment);
+    }
+    return parts.join('; ');
+  }
+
+  // Şablonların perSheet bilgisini "Sheet: aralıklar" formatında özet
+  // bir satıra dönüştürür. Sheet sayısı 4'ten fazlaysa ilk 3 + "+N
+  // sheet" gösterilir (LLM token tasarrufu).
+  function fmtPerSheet(perSheet) {
+    const items = perSheet.map((p) => {
+      const ranges = joinTrimmed(p.ranges, 50);
+      return `${escapeCell(p.sheet)}: ${ranges}`;
+    });
+    if (items.length <= 4) return items.join('; ');
+    return items.slice(0, 3).join('; ') + `; +${items.length - 3} sheet daha`;
+  }
+
+  function fmtOutlierCells(outliers) {
+    if (!outliers || outliers.length === 0) return '';
+    if (outliers.length <= 6) {
+      return outliers
+        .map((o) => `${escapeCell(o.sheet)}!${o.addr}=${escapeCell(o.value)}`)
+        .join(', ');
+    }
+    const head = outliers
+      .slice(0, 5)
+      .map((o) => `${escapeCell(o.sheet)}!${o.addr}=${escapeCell(o.value)}`)
+      .join(', ');
+    return `${head}, +${outliers.length - 5} daha`;
+  }
+
+  // Workbook seviyesi şablonlar (skeleton dedup + sabit histogramları).
+  function renderTemplatesTable(templates) {
+    if (!templates || templates.length === 0) return '';
     const lines = [
-      `### Formül Desenleri (${groups.size} benzersiz, ${sheet.formulas.length} formül)`,
+      `## Şablonlar (Workbook Geneli)`,
       '',
-      '| Aralık | Patern | Adet | Örnek Değer | Sabit Değerler |',
-      '|--------|--------|------|-------------|----------------|',
+      `${templates.length} benzersiz şablon (skeleton). Aynı skeleton'ı paylaşan formüller — farklı sheet/satırlarda olsalar da — burada tek satırda toplanır. Sayısal sabitler skeleton'da \`{const}\` olarak abstrakte edilmiştir; gerçek değerler "Sabit Dağılımı" kolonunda.`,
+      '',
+      '| Şablon | Sheet+Aralıklar | Hücre | Sabit Dağılımı | Not |',
+      '|--------|------------------|-------|-----------------|-----|',
     ];
-    for (const g of sorted) {
-      const ranges = compactRanges(g.cells);
-      const rangeStr = joinTrimmed(ranges, 60);
-      const sampleVal = maskedValue(g.sample.v, sensitive);
-      const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
-      const patternEsc = escapeInlineCode(g.pattern);
-      lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
+    for (const t of templates) {
+      const sk = '`' + escapeInlineCode(t.skeleton) + '`';
+      const perSheet = fmtPerSheet(t.perSheet);
+      const histograms = fmtHistograms(t.mergedHistograms, t.positionStates);
+      let note = '';
+      if (t.constantState === 'sapma') {
+        note = `Sabit sapması — outlier: ${fmtOutlierCells(t.outlierConstantCells)}`;
+      } else if (t.constantState === 'karışık') {
+        note = 'Sabitler karışık (çoğunluk yok)';
+      } else if (t.sheetCount > 1) {
+        note = `Çoklu-sheet (${t.sheetCount}) — şablon birebir tutarlı`;
+      }
+      lines.push(
+        `| ${sk} | ${perSheet} | ${t.totalCells} | ${histograms || '_yok_'} | ${note} |`
+      );
     }
     lines.push('');
     return lines.join(NL);
@@ -128,20 +185,20 @@ window.EA.markdown = (function () {
 
     const lines = ['### Tutarsızlıklar', ''];
     for (const inc of flagged) {
-      const head = `**Sütun ${inc.colLetter}** — ${inc.total} formül, ${inc.patternCount} patern, durum: \`${inc.state}\``;
+      const head = `**Sütun ${inc.colLetter}** — ${inc.total} formül, ${inc.skeletonCount} farklı skeleton, durum: \`${inc.state}\``;
       lines.push(`- ${head}`);
       if (inc.state === 'sapma') {
         const m = inc.majority;
         const mRanges = joinTrimmed(compactRanges(m.cells), 80);
-        lines.push(`  - Çoğunluk (${m.cells.length}): \`${escapeInlineCode(m.pattern)}\` — \`${mRanges}\``);
+        lines.push(`  - Çoğunluk (${m.cells.length}): \`${escapeInlineCode(m.skeleton)}\` — \`${mRanges}\``);
         for (const o of inc.outliers) {
           const oAddrs = joinTrimmed(o.cells.map((c) => c.addr), 100);
-          lines.push(`  - Sapma (${o.cells.length}): \`${escapeInlineCode(o.pattern)}\` — \`${oAddrs}\``);
+          lines.push(`  - Sapma (${o.cells.length}): \`${escapeInlineCode(o.skeleton)}\` — \`${oAddrs}\``);
         }
       } else {
         for (const o of inc.outliers) {
           const oRanges = joinTrimmed(compactRanges(o.cells), 80);
-          lines.push(`  - ${o.cells.length}× \`${escapeInlineCode(o.pattern)}\` — \`${oRanges}\``);
+          lines.push(`  - ${o.cells.length}× \`${escapeInlineCode(o.skeleton)}\` — \`${oRanges}\``);
         }
       }
     }
@@ -155,8 +212,8 @@ window.EA.markdown = (function () {
     const lines = [
       '### Sabit Değerler',
       '',
-      '| Değer | Hücre Adedi | Patern Sayısı | Örnek Patern |',
-      '|-------|-------------|---------------|---------------|',
+      '| Değer | Hücre Adedi | Şablon Sayısı | Örnek Şablon |',
+      '|-------|-------------|----------------|----------------|',
     ];
     for (const c of consts) {
       const sample = c.samplePatterns[0] ? '`' + escapeInlineCode(c.samplePatterns[0]) + '`' : '';
@@ -172,8 +229,8 @@ window.EA.markdown = (function () {
     const lines = [
       '### Çapraz Sayfa Referansları',
       '',
-      '| Hedef | Hücre Adedi | Patern Sayısı | Örnek Patern |',
-      '|-------|-------------|---------------|---------------|',
+      '| Hedef | Hücre Adedi | Şablon Sayısı | Örnek Şablon |',
+      '|-------|-------------|----------------|----------------|',
     ];
     for (const r of refs) {
       const sample = r.samplePatterns[0] ? '`' + escapeInlineCode(r.samplePatterns[0]) + '`' : '';
@@ -189,11 +246,13 @@ window.EA.markdown = (function () {
     const lines = [
       `### Tek Seferlik Formüller (${oneOffs.length})`,
       '',
-      '| Hücre | Patern | Değer |',
+      '| Hücre | Formül | Değer |',
       '|-------|--------|-------|',
     ];
     for (const o of oneOffs) {
-      lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${maskedValue(o.value, sensitive)} |`);
+      // Skeleton + constants → gerçek formül (okunabilir).
+      const formula = reconstructFormula(o.skeleton, o.constants);
+      lines.push(`| ${o.addr} | \`${escapeInlineCode(formula)}\` | ${maskedValue(o.value, sensitive)} |`);
     }
     lines.push('');
     return lines.join(NL);
@@ -215,7 +274,10 @@ window.EA.markdown = (function () {
       return lines.join(NL);
     }
 
-    lines.push(renderPatternTable(sheet, sensitive));
+    // Sheet özeti — şablon ayrıntısı workbook-seviyesi tablosunda
+    const groupCount = sheet.patternGroups?.size ?? 0;
+    lines.push(`**Şablon sayısı:** ${groupCount} (ayrıntı için yukarıdaki "Şablonlar" tablosuna bakın)`, '');
+
     const incBlock = renderInconsistencies(sheet);
     if (incBlock) lines.push(incBlock);
     const constBlock = renderConstantsTable(sheet);
@@ -254,8 +316,8 @@ window.EA.markdown = (function () {
     const lines = [
       '## External Links',
       '',
-      '| Hedef | Hücre Adedi | Patern Sayısı | Görüldüğü Sheet\'ler | Örnek Patern |',
-      '|-------|-------------|---------------|---------------------|---------------|',
+      '| Hedef | Hücre Adedi | Şablon Sayısı | Görüldüğü Sheet\'ler | Örnek Şablon |',
+      '|-------|-------------|----------------|---------------------|----------------|',
     ];
     for (const e of externalLinks) {
       const sample = e.samplePatterns[0] ? '`' + escapeInlineCode(e.samplePatterns[0]) + '`' : '';
@@ -334,12 +396,13 @@ window.EA.markdown = (function () {
     ].join(NL);
   }
 
-  function buildReport({ fileMeta, sheets, namedRanges, externalLinks, sensitive }) {
+  function buildReport({ fileMeta, sheets, namedRanges, externalLinks, sensitive, templates }) {
     const totals = computeTotals(sheets);
     const parts = [
       renderHeader(fileMeta),
-      renderSummary(sheets, totals, namedRanges, externalLinks),
+      renderSummary(sheets, totals, namedRanges, externalLinks, templates),
       renderRedactionNote(sensitive),
+      renderTemplatesTable(templates),
       renderSheetListing(sheets),
       '---',
       '',
@@ -354,14 +417,35 @@ window.EA.markdown = (function () {
     return parts.filter((p) => p !== '').join(NL);
   }
 
-  // Belirli bir odak sheet ve bu sheet'in çapraz referans verdiği
-  // sheet'ler için odaklı bir rapor üretir. Workbook geneli bölümler
-  // (Named Ranges, External Links, Gizli Öğeler, VBA placeholder)
-  // dahil edilmez — alt küme daha kısa kalsın diye.
-  function buildSubsetReport({ fileMeta, allSheets, focusSheetName, includedSheetNames, sensitive }) {
+  // Subset rapor: odak sheet + bağlı sheet'ler. Şablonlar tablosu da
+  // sadece bu sheet'lere indirgenir.
+  function buildSubsetReport({ fileMeta, allSheets, focusSheetName, includedSheetNames, sensitive, templates }) {
     const subset = allSheets.filter((s) => includedSheetNames.includes(s.name));
     const refSheetNames = includedSheetNames.filter((n) => n !== focusSheetName);
     const totals = computeTotals(subset);
+
+    // Şablonları subset'e filtrele: en az bir perSheet entry'si dahil
+    // edilen sheet'lerden biri olan şablonları al; perSheet listesini
+    // de subset'e indir.
+    let subsetTemplates = null;
+    if (templates) {
+      subsetTemplates = templates
+        .map((t) => {
+          const filteredPerSheet = t.perSheet.filter((p) =>
+            includedSheetNames.includes(p.sheet)
+          );
+          if (filteredPerSheet.length === 0) return null;
+          const totalCells = filteredPerSheet.reduce((n, p) => n + p.cells.length, 0);
+          return {
+            ...t,
+            perSheet: filteredPerSheet,
+            sheetCount: filteredPerSheet.length,
+            totalCells,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.totalCells - a.totalCells);
+    }
 
     const refsList = refSheetNames.length
       ? refSheetNames.map((n) => '`' + escapeCell(n) + '`').join(', ')
@@ -383,7 +467,7 @@ window.EA.markdown = (function () {
       '',
       `- Sheet sayısı: ${subset.length}`,
       `- Toplam formül: ${totals.formulas}`,
-      `- Benzersiz patern: ${totals.patterns}`,
+      `- Şablon: ${subsetTemplates ? subsetTemplates.length : '?'}`,
       `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
       '',
     ].join(NL);
@@ -392,6 +476,7 @@ window.EA.markdown = (function () {
       header,
       summary,
       renderRedactionNote(sensitive),
+      renderTemplatesTable(subsetTemplates),
       '---',
       '',
       ...subset.map((s) => renderSheetSection(s, sensitive)),
