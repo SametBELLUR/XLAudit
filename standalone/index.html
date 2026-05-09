@@ -360,15 +360,9 @@ window.EA.patterns = (function () {
       return {
         type: 'CELL',
         text: m[5],
-        absCol: m[6] === '
-</body>
-</html>
-,
+        absCol: m[6] === '$',
         col: m[7],
-        absRow: m[8] === '
-</body>
-</html>
-,
+        absRow: m[8] === '$',
         row: m[9],
       };
     }
@@ -415,16 +409,10 @@ window.EA.patterns = (function () {
   // CELL token'ı, kendi anchor (formülün bulunduğu hücre) referansı ile
   // patern parçasına çevirir. Sütun harfi her zaman literal kalır.
   function formatCellPattern(cell, anchor) {
-    const colPart = (cell.absCol ? '
-</body>
-</html>
- : '') + cell.col;
+    const colPart = (cell.absCol ? '$' : '') + cell.col;
     let rowPart;
     if (cell.absRow) {
-      rowPart = '
-</body>
-</html>
- + cell.row;
+      rowPart = '$' + cell.row;
     } else {
       const rowNum = parseInt(cell.row, 10);
       const offset = rowNum - anchor.row;
