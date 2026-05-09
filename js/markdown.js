@@ -30,12 +30,6 @@ function fmtValue(v) {
   return String(v);
 }
 
-// Hücre redacte ise değer yerine maske, değilse normal format.
-function fmtCellValue(cell) {
-  if (cell?.redacted) return '`***`';
-  return escapeCell(fmtValue(cell?.v));
-}
-
 function joinTrimmed(arr, max = 80) {
   const s = arr.join(', ');
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
@@ -52,10 +46,10 @@ function renderHeader({ fileName, fileSize, fileType }) {
   ].join(NL);
 }
 
-function renderSummary(sheets, totals, namedRanges, externalLinks, redaction) {
+function renderSummary(sheets, totals, namedRanges, externalLinks) {
   const visibleCount = sheets.filter((s) => s.hidden === 0).length;
   const hiddenCount = sheets.length - visibleCount;
-  const lines = [
+  return [
     '## Genel Özet',
     '',
     `- Toplam sheet: ${sheets.length} (gizli: ${hiddenCount})`,
@@ -66,44 +60,8 @@ function renderSummary(sheets, totals, namedRanges, externalLinks, redaction) {
     `- Çapraz sayfa referansı (benzersiz hedef): ${totals.crossSheetTargets}`,
     `- Named range: ${namedRanges?.length ?? 0}`,
     `- External link (benzersiz dosya): ${externalLinks?.length ?? 0}`,
-  ];
-  if (redaction?.sheetName) {
-    const ruleCount = redaction.compiledRules?.length ?? 0;
-    const masked = totals.maskedCells ?? 0;
-    lines.push(
-      `- Redaction: \`${redaction.sheetName}\` algılandı, ${ruleCount} kural, ${masked} hücrenin değeri maskelendi`
-    );
-  }
-  lines.push('');
-  return lines.join(NL);
-}
-
-function renderRedactionDetails(redaction) {
-  if (!redaction?.sheetName) return '';
-  const lines = ['## Redaction Politikası', ''];
-  lines.push(
-    `Bu rapor \`${redaction.sheetName}\` sayfasındaki kurallarla işlendi. Eşleşen hücrelerde formül yapısı korunmuş, hesaplanmış değer \`***\` ile maskelenmiştir.`
-  );
-  lines.push('');
-
-  const rules = redaction.compiledRules ?? [];
-  if (rules.length > 0) {
-    lines.push('| Sheet | Aralık | Eşleşen Hücre | Not |');
-    lines.push('|-------|--------|----------------|-----|');
-    for (const r of rules) {
-      lines.push(
-        `| ${escapeCell(r.sheet)} | \`${escapeCell(r.range)}\` | ${r.matchedCount} | ${escapeCell(r.note ?? '')} |`
-      );
-    }
-    lines.push('');
-  }
-  const errs = [...(redaction.parseErrors ?? []), ...(redaction.errors ?? [])];
-  if (errs.length > 0) {
-    lines.push('**Uyarılar:**', '');
-    for (const e of errs) lines.push(`- ${escapeCell(e)}`);
-    lines.push('');
-  }
-  return lines.join(NL);
+    '',
+  ].join(NL);
 }
 
 function renderSheetListing(sheets) {
@@ -142,10 +100,7 @@ function renderPatternTable(sheet) {
   for (const g of sorted) {
     const ranges = compactRanges(g.cells);
     const rangeStr = joinTrimmed(ranges, 60);
-    // Sample olarak grup içinden NON-redacted bir hücre tercih et;
-    // hepsi redacte ise maske göster.
-    const visibleSample = g.cells.find((c) => !c.redacted) ?? g.sample;
-    const sampleVal = fmtCellValue(visibleSample);
+    const sampleVal = escapeCell(fmtValue(g.sample.v));
     const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
     const patternEsc = escapeInlineCode(g.pattern);
     lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
@@ -227,8 +182,7 @@ function renderOneOffs(sheet) {
     '|-------|--------|-------|',
   ];
   for (const o of oneOffs) {
-    const val = o.redacted ? '`***`' : escapeCell(fmtValue(o.value));
-    lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${val} |`);
+    lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${escapeCell(fmtValue(o.value))} |`);
   }
   lines.push('');
   return lines.join(NL);
@@ -359,18 +313,11 @@ function computeTotals(sheets) {
   };
 }
 
-export function buildReport({ fileMeta, sheets, namedRanges, externalLinks, redaction }) {
+export function buildReport({ fileMeta, sheets, namedRanges, externalLinks }) {
   const totals = computeTotals(sheets);
-  if (redaction?.compiledRules) {
-    totals.maskedCells = sheets.reduce(
-      (n, s) => n + (s.formulas?.filter((f) => f.redacted).length ?? 0),
-      0
-    );
-  }
   const parts = [
     renderHeader(fileMeta),
-    renderSummary(sheets, totals, namedRanges, externalLinks, redaction),
-    renderRedactionDetails(redaction),
+    renderSummary(sheets, totals, namedRanges, externalLinks),
     renderSheetListing(sheets),
     '---',
     '',
