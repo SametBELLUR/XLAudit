@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Samet Bellur
+//
 // Markdown rapor montajı. IIFE + global namespace (window.EA.markdown).
 
 window.EA = window.EA || {};

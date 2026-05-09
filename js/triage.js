@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Samet Bellur
+//
 // Hassas veri triaj modülü — sekmeli grid sürümü.
 // Üç tab: Metin, Sayısal (tam sayı), Ondalıklı (decimal).
 // Her sekmede satır listesi: işaretle, satıra tıkla, "Hepsini Seç" /

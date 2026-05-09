@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Samet Bellur
+//
 // Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
 // IIFE — global namespace'e ihtiyacı yok, sadece DOM'a bağlanıyor.
 

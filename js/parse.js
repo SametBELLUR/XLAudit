@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Samet Bellur
+//
 // SheetJS workbook yükleme ve sheet meta toplama.
 // IIFE + global namespace (window.EA.parse) — file:// üzerinden çalışır.
 
