@@ -16,6 +16,10 @@ function escapeCell(s) {
   return String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ').replace(/\r/g, '');
 }
 
+function escapeInlineCode(s) {
+  return escapeCell(s).replace(/`/g, '\\`');
+}
+
 function fmtValue(v) {
   if (v == null) return '';
   if (typeof v === 'number') {
@@ -42,15 +46,18 @@ function renderHeader({ fileName, fileSize, fileType }) {
   ].join(NL);
 }
 
-function renderSummary(sheets, totalFormulas, totalPatterns) {
+function renderSummary(sheets, totals) {
   const visibleCount = sheets.filter((s) => s.hidden === 0).length;
   const hiddenCount = sheets.length - visibleCount;
   return [
     '## Genel Özet',
     '',
     `- Toplam sheet: ${sheets.length} (gizli: ${hiddenCount})`,
-    `- Toplam formül: ${totalFormulas}`,
-    `- Benzersiz formül paterni: ${totalPatterns}`,
+    `- Toplam formül: ${totals.formulas}`,
+    `- Benzersiz formül paterni: ${totals.patterns}`,
+    `- Tutarsız sütun: ${totals.inconsistentCols} (sapma: ${totals.deviationCols}, karışık: ${totals.mixedCols})`,
+    `- Hardcoded sayısal sabit (benzersiz): ${totals.constants}`,
+    `- Çapraz sayfa referansı (benzersiz hedef): ${totals.crossSheetTargets}`,
     '',
   ].join(NL);
 }
@@ -59,8 +66,8 @@ function renderSheetListing(sheets) {
   const lines = [
     '## Sheet Listesi',
     '',
-    '| # | Ad | Aralık | Görünürlük | Formül | Patern |',
-    '|---|----|--------|------------|--------|--------|',
+    '| # | Ad | Aralık | Görünürlük | Formül | Patern | Sapma |',
+    '|---|----|--------|------------|--------|--------|-------|',
   ];
   sheets.forEach((s, i) => {
     const label = hiddenLabel(s.hidden);
@@ -69,8 +76,112 @@ function renderSheetListing(sheets) {
     const safeName = escapeCell(s.name);
     const fc = s.formulas ? s.formulas.length : 0;
     const pc = s.patternGroups ? s.patternGroups.size : 0;
-    lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} | ${pc} |`);
+    const dev = s.inconsistencies
+      ? s.inconsistencies.filter((c) => c.state !== 'tutarlı').length
+      : 0;
+    lines.push(`| ${i + 1} | ${safeName} | \`${range}\` | ${vis} | ${fc} | ${pc} | ${dev} |`);
   });
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderPatternTable(sheet) {
+  const groups = sheet.patternGroups;
+  if (!groups || groups.size === 0) return '';
+  const sorted = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
+  const lines = [
+    `### Formül Desenleri (${groups.size} benzersiz, ${sheet.formulas.length} formül)`,
+    '',
+    '| Aralık | Patern | Adet | Örnek Değer | Sabit Değerler |',
+    '|--------|--------|------|-------------|----------------|',
+  ];
+  for (const g of sorted) {
+    const ranges = compactRanges(g.cells);
+    const rangeStr = joinTrimmed(ranges, 60);
+    const sampleVal = escapeCell(fmtValue(g.sample.v));
+    const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
+    const patternEsc = escapeInlineCode(g.pattern);
+    lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderInconsistencies(sheet) {
+  const incs = sheet.inconsistencies ?? [];
+  const flagged = incs.filter((c) => c.state !== 'tutarlı');
+  if (flagged.length === 0) return '';
+
+  const lines = ['### Tutarsızlıklar', ''];
+  for (const inc of flagged) {
+    const head = `**Sütun ${inc.colLetter}** — ${inc.total} formül, ${inc.patternCount} patern, durum: \`${inc.state}\``;
+    lines.push(`- ${head}`);
+    if (inc.state === 'sapma') {
+      const m = inc.majority;
+      const mRanges = joinTrimmed(compactRanges(m.cells), 80);
+      lines.push(`  - Çoğunluk (${m.cells.length}): \`${escapeInlineCode(m.pattern)}\` — \`${mRanges}\``);
+      for (const o of inc.outliers) {
+        const oAddrs = joinTrimmed(o.cells.map((c) => c.addr), 100);
+        lines.push(`  - Sapma (${o.cells.length}): \`${escapeInlineCode(o.pattern)}\` — \`${oAddrs}\``);
+      }
+    } else {
+      // karışık: tüm patternleri listele
+      for (const o of inc.outliers) {
+        const oRanges = joinTrimmed(compactRanges(o.cells), 80);
+        lines.push(`  - ${o.cells.length}× \`${escapeInlineCode(o.pattern)}\` — \`${oRanges}\``);
+      }
+    }
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderConstantsTable(sheet) {
+  const consts = sheet.constants ?? [];
+  if (consts.length === 0) return '';
+  const lines = [
+    '### Sabit Değerler',
+    '',
+    '| Değer | Hücre Adedi | Patern Sayısı | Örnek Patern |',
+    '|-------|-------------|---------------|---------------|',
+  ];
+  for (const c of consts) {
+    const sample = c.samplePatterns[0] ? '`' + escapeInlineCode(c.samplePatterns[0]) + '`' : '';
+    lines.push(`| \`${escapeCell(c.value)}\` | ${c.cellCount} | ${c.patternCount} | ${sample} |`);
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderCrossSheetRefs(sheet) {
+  const refs = sheet.crossSheetRefs ?? [];
+  if (refs.length === 0) return '';
+  const lines = [
+    '### Çapraz Sayfa Referansları',
+    '',
+    '| Hedef | Hücre Adedi | Patern Sayısı | Örnek Patern |',
+    '|-------|-------------|---------------|---------------|',
+  ];
+  for (const r of refs) {
+    const sample = r.samplePatterns[0] ? '`' + escapeInlineCode(r.samplePatterns[0]) + '`' : '';
+    lines.push(`| \`${escapeCell(r.targetSheet)}\` | ${r.cellCount} | ${r.patternCount} | ${sample} |`);
+  }
+  lines.push('');
+  return lines.join(NL);
+}
+
+function renderOneOffs(sheet) {
+  const oneOffs = sheet.oneOffs ?? [];
+  if (oneOffs.length === 0) return '';
+  const lines = [
+    `### Tek Seferlik Formüller (${oneOffs.length})`,
+    '',
+    '| Hücre | Patern | Değer |',
+    '|-------|--------|-------|',
+  ];
+  for (const o of oneOffs) {
+    lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${escapeCell(fmtValue(o.value))} |`);
+  }
   lines.push('');
   return lines.join(NL);
 }
@@ -86,26 +197,21 @@ function renderSheetSection(sheet) {
   ];
 
   const formulas = sheet.formulas ?? [];
-  const groups = sheet.patternGroups;
-  if (!formulas.length || !groups || groups.size === 0) {
+  if (!formulas.length) {
     lines.push('_Bu sheet\'te formül bulunamadı._', '');
     return lines.join(NL);
   }
 
-  const sortedGroups = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
+  lines.push(renderPatternTable(sheet));
+  const incBlock = renderInconsistencies(sheet);
+  if (incBlock) lines.push(incBlock);
+  const constBlock = renderConstantsTable(sheet);
+  if (constBlock) lines.push(constBlock);
+  const crossBlock = renderCrossSheetRefs(sheet);
+  if (crossBlock) lines.push(crossBlock);
+  const oneOffBlock = renderOneOffs(sheet);
+  if (oneOffBlock) lines.push(oneOffBlock);
 
-  lines.push(`### Formül Desenleri (${groups.size} benzersiz, ${formulas.length} formül)`, '');
-  lines.push('| Aralık | Patern | Adet | Örnek Değer | Sabit Değerler |');
-  lines.push('|--------|--------|------|-------------|----------------|');
-  for (const g of sortedGroups) {
-    const ranges = compactRanges(g.cells);
-    const rangeStr = joinTrimmed(ranges, 60);
-    const sampleVal = escapeCell(fmtValue(g.sample.v));
-    const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
-    const patternEsc = escapeCell(g.pattern).replace(/`/g, '\\`');
-    lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
-  }
-  lines.push('');
   return lines.join(NL);
 }
 
@@ -118,17 +224,41 @@ function renderVbaPlaceholder() {
   ].join(NL);
 }
 
+function computeTotals(sheets) {
+  let formulas = 0, patterns = 0, deviationCols = 0, mixedCols = 0;
+  const allConstants = new Set();
+  const allCrossSheets = new Set();
+  for (const s of sheets) {
+    formulas += s.formulas?.length ?? 0;
+    patterns += s.patternGroups?.size ?? 0;
+    for (const c of s.constants ?? []) allConstants.add(c.value);
+    for (const r of s.crossSheetRefs ?? []) allCrossSheets.add(r.targetSheet);
+    for (const inc of s.inconsistencies ?? []) {
+      if (inc.state === 'sapma') deviationCols++;
+      else if (inc.state === 'karışık') mixedCols++;
+    }
+  }
+  return {
+    formulas,
+    patterns,
+    deviationCols,
+    mixedCols,
+    inconsistentCols: deviationCols + mixedCols,
+    constants: allConstants.size,
+    crossSheetTargets: allCrossSheets.size,
+  };
+}
+
 export function buildReport({ fileMeta, sheets }) {
-  const totalFormulas = sheets.reduce((n, s) => n + (s.formulas?.length ?? 0), 0);
-  const totalPatterns = sheets.reduce((n, s) => n + (s.patternGroups?.size ?? 0), 0);
+  const totals = computeTotals(sheets);
   const parts = [
     renderHeader(fileMeta),
-    renderSummary(sheets, totalFormulas, totalPatterns),
+    renderSummary(sheets, totals),
     renderSheetListing(sheets),
     '---',
     '',
     ...sheets.map(renderSheetSection),
     renderVbaPlaceholder(),
   ];
-  return parts.join(NL);
+  return parts.filter((p) => p !== '').join(NL);
 }

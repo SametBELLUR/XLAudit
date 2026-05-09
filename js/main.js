@@ -2,6 +2,13 @@
 
 import { readWorkbook, collectSheetMeta, collectFormulas } from './parse.js';
 import { groupByPattern } from './patterns.js';
+import {
+  findInconsistencies,
+  aggregateConstants,
+  aggregateCrossSheetRefs,
+  findOneOffFormulas,
+  collectInconsistencyOutlierAddrs,
+} from './analysis.js';
 import { buildReport } from './markdown.js';
 
 const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
@@ -108,8 +115,13 @@ async function runAnalysis() {
       const ws = wb.Sheets[s.name];
       s.formulas = collectFormulas(ws);
       s.patternGroups = groupByPattern(s.formulas);
+      s.inconsistencies = findInconsistencies(s.formulas, s.patternGroups);
+      s.constants = aggregateConstants(s.patternGroups);
+      s.crossSheetRefs = aggregateCrossSheetRefs(s.patternGroups);
+      const outlierAddrs = collectInconsistencyOutlierAddrs(s.inconsistencies);
+      s.oneOffs = findOneOffFormulas(s.patternGroups, outlierAddrs);
       console.log(
-        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern`
+        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
       );
     }
 
