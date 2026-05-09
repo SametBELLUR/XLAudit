@@ -241,6 +241,77 @@
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
+
+    const standaloneBtn = document.getElementById('download-standalone-btn');
+    if (standaloneBtn) {
+      standaloneBtn.addEventListener('click', () => downloadStandalone(standaloneBtn));
+    }
+  }
+
+  // Mevcut sayfanın CSS+JS'sini inline edip tek dosyalık standalone
+  // HTML üretir ve indirir. Multi-file modda fetch() ile kaynakları
+  // çeker; zaten bundled modda DOM'dan okur.
+  async function downloadStandalone(btn) {
+    const origLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Hazırlanıyor…';
+    try {
+      const baseUrl = new URL('.', window.location.href).href;
+      const pageRes = await fetch(window.location.href, { cache: 'no-store' });
+      if (!pageRes.ok) throw new Error(`HTML alınamadı (${pageRes.status})`);
+      let html = await pageRes.text();
+
+      const isMultiFile = html.includes('href="css/styles.css"');
+
+      if (isMultiFile) {
+        const cssRes = await fetch(baseUrl + 'css/styles.css', { cache: 'no-store' });
+        if (!cssRes.ok) throw new Error(`styles.css alınamadı (${cssRes.status})`);
+        const css = await cssRes.text();
+
+        const JS_ORDER = ['parse', 'patterns', 'analysis', 'triage', 'markdown', 'main'];
+        const jsBlocks = [];
+        for (const name of JS_ORDER) {
+          const r = await fetch(`${baseUrl}js/${name}.js`, { cache: 'no-store' });
+          if (!r.ok) throw new Error(`js/${name}.js alınamadı (${r.status})`);
+          jsBlocks.push(`// === js/${name}.js ===\n${await r.text()}`);
+        }
+
+        const scriptRe = new RegExp(
+          '  <script src="js/parse\\.js"></script>\\s*\\n' +
+            '\\s*<script src="js/patterns\\.js"></script>\\s*\\n' +
+            '\\s*<script src="js/analysis\\.js"></script>\\s*\\n' +
+            '\\s*<script src="js/triage\\.js"></script>\\s*\\n' +
+            '\\s*<script src="js/markdown\\.js"></script>\\s*\\n' +
+            '\\s*<script src="js/main\\.js"></script>'
+        );
+
+        html = html
+          .replace(
+            '<link rel="stylesheet" href="css/styles.css">',
+            () => `<style>\n${css}\n</style>`
+          )
+          .replace(scriptRe, () => `  <script>\n${jsBlocks.join('\n\n')}\n  </script>`);
+      }
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'excel-audit-standalone.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      btn.textContent = '✓ İndirildi';
+      setTimeout(() => (btn.textContent = origLabel), 1800);
+    } catch (err) {
+      console.error('[ExcelAudit] standalone üretimi başarısız:', err);
+      btn.textContent = '✗ Hata: ' + (err.message || err);
+      setTimeout(() => (btn.textContent = origLabel), 3500);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function init() {

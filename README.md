@@ -10,9 +10,9 @@ GitHub Pages veya `python -m http.server 8000` ile de çalışır; sadece taray�
 
 ### Standalone tek-dosya sürümü
 
-`.js` dosyalarına izin vermeyen ortak ağ sürücüleri (FSRM "Executable Files" kuralı vb.) için tüm CSS+JS'in inline edildiği tek dosyalı bir bundle var: **`standalone/index.html`** (~38 KB).
+`.js` dosyalarına izin vermeyen ortak ağ sürücüleri (FSRM "Executable Files" kuralı vb.) için **tek dosyalık (CSS+JS inline) sürüm**: uygulamayı normal şekilde açın, sayfanın altındaki **"⬇ Tek-dosya (standalone) sürümünü indir"** butonuna basın — anlık olarak güncel kaynaktan üretilip indirilir (`excel-audit-standalone.html`).
 
-Bu dosyayı tek başına kopyalamanız yeterli; klasör yapısına ihtiyacı yok. Kaynak kodda değişiklik yaparsanız `node build-standalone.js` ile yeniden üretebilirsiniz.
+İndirilen dosya tek başına çalışır, klasör yapısına ihtiyacı yok. Repoda hazır `standalone/` dosyası tutulmaz; daima en son koddan üretilir, sync drift olmaz.
 
 ## Kullanım
 
