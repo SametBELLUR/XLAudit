@@ -334,3 +334,27 @@ button:disabled {
   font-family: inherit;
 }
 .triage-skip:hover { filter: brightness(1.1); }
+
+/* ---- Footer ---- */
+.app-footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--fg-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.footer-link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.footer-link:hover { filter: brightness(1.1); }
+.footer-sep { color: var(--border-strong); }
