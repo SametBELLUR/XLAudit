@@ -13,6 +13,7 @@
     collectInconsistencyOutlierAddrs,
   } = window.EA.analysis;
   const { buildReport } = window.EA.markdown;
+  const { collectCandidates, runTriage } = window.EA.triage;
 
   const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 
@@ -133,6 +134,17 @@
       const namedRanges = collectNamedRanges(wb);
       const externalLinks = aggregateExternalLinks(sheets);
 
+      const candidates = collectCandidates(sheets);
+      let sensitive = new Set();
+      if (candidates.length > 0) {
+        setStatus(
+          `Hassas veri kontrolü: ${candidates.length} benzersiz değer triaj edilecek (← Hayır / → Evet, Esc: bitir)…`
+        );
+        await yieldToUI();
+        sensitive = await runTriage(candidates);
+        setStatus(`Triaj tamam — ${sensitive.size} değer hassas işaretlendi.`);
+      }
+
       setStatus('Markdown raporu oluşturuluyor…');
       await yieldToUI();
       const md = buildReport({
@@ -144,6 +156,7 @@
         sheets,
         namedRanges,
         externalLinks,
+        sensitive,
       });
 
       currentMarkdown = md;

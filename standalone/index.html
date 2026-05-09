@@ -173,6 +173,175 @@ button:disabled {
   background: var(--bg-card);
 }
 
+/* ---- Triage modal ---- */
+
+.triage-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 30, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.triage-overlay[hidden] { display: none; }
+
+.triage-modal {
+  width: min(460px, 100%);
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.triage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+.triage-title { font-weight: 700; color: var(--fg); }
+.triage-progress { color: var(--fg-soft); font-family: var(--mono); }
+
+.triage-question {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--fg-soft);
+  text-align: center;
+}
+.triage-question code {
+  font-family: var(--mono);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.triage-stack {
+  position: relative;
+  height: 220px;
+  overflow: visible;
+}
+
+.triage-card {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, #ffffff 0%, #f3f6fb 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  user-select: none;
+  transition: transform 350ms cubic-bezier(0.55, 0.05, 0.25, 1), opacity 350ms ease;
+  will-change: transform, opacity;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.triage-card.enter {
+  transform: translateY(20px) scale(0.96);
+  opacity: 0;
+}
+
+.triage-card-value {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--fg);
+  word-break: break-word;
+  max-height: 110px;
+  overflow: hidden;
+  font-family: var(--mono);
+  line-height: 1.3;
+}
+
+.triage-card-context {
+  font-size: 0.85rem;
+  color: var(--fg-soft);
+}
+.triage-card-context code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+.triage-card-more {
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
+.triage-card.swipe-left {
+  transform: translateX(-150%) rotate(-15deg);
+  opacity: 0;
+}
+.triage-card.swipe-right {
+  transform: translateX(150%) rotate(15deg);
+  opacity: 0;
+}
+
+.triage-actions {
+  display: flex;
+  gap: 12px;
+}
+.triage-btn {
+  flex: 1;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #fff;
+  transition: transform 100ms ease, filter 120ms ease, box-shadow 120ms ease;
+  font: inherit;
+}
+.triage-btn:hover { filter: brightness(1.08); }
+.triage-btn:active { transform: translateY(1px); }
+.triage-btn:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+.triage-btn-no {
+  background: linear-gradient(180deg, #d63b3b 0%, #b52d2d 100%);
+  box-shadow: 0 4px 14px rgba(214, 59, 59, 0.35);
+}
+.triage-btn-yes {
+  background: linear-gradient(180deg, #2fa845 0%, #218a36 100%);
+  box-shadow: 0 4px 14px rgba(47, 168, 69, 0.35);
+}
+.triage-btn-icon { font-size: 1.5rem; font-weight: bold; line-height: 1; }
+.triage-btn-label { font-weight: 800; font-size: 1rem; letter-spacing: 0.02em; }
+.triage-btn-sub { font-size: 0.72rem; opacity: 0.9; }
+
+.triage-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--fg-soft);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.triage-hint { font-family: var(--mono); }
+.triage-skip {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.82rem;
+  padding: 4px 0;
+  font-family: inherit;
+}
+.triage-skip:hover { filter: brightness(1.1); }
+
 </style>
 </head>
 <body>
@@ -220,6 +389,35 @@ button:disabled {
       <pre id="result-output" class="result-output"></pre>
     </section>
   </main>
+
+  <div id="triage-overlay" class="triage-overlay" hidden aria-hidden="true">
+    <div class="triage-modal" role="dialog" aria-labelledby="triage-title">
+      <header class="triage-header">
+        <span id="triage-title" class="triage-title">Hassas veri kontrolü</span>
+        <span class="triage-progress" id="triage-progress">0 / 0</span>
+      </header>
+      <p class="triage-question">
+        Bu değer <strong>hassas mı</strong>? Evet derseniz raporda <code>***</code> ile gizlenir.
+      </p>
+      <div class="triage-stack" id="triage-stack" aria-live="polite"></div>
+      <div class="triage-actions">
+        <button id="triage-no" class="triage-btn triage-btn-no" type="button" aria-label="Hayır, hassas değil">
+          <span class="triage-btn-icon">✕</span>
+          <span class="triage-btn-label">HAYIR</span>
+          <span class="triage-btn-sub">gizleme</span>
+        </button>
+        <button id="triage-yes" class="triage-btn triage-btn-yes" type="button" aria-label="Evet, hassas">
+          <span class="triage-btn-icon">✓</span>
+          <span class="triage-btn-label">EVET</span>
+          <span class="triage-btn-sub">hassas, gizle</span>
+        </button>
+      </div>
+      <div class="triage-footer">
+        <span class="triage-hint">← Hayır · Evet → · Esc: Bitir</span>
+        <button id="triage-skip-all" class="triage-skip" type="button">Bu kadar yeter, kalanları gizleme</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
           onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
@@ -709,6 +907,208 @@ window.EA.analysis = (function () {
 })();
 
 
+// === js/triage.js ===
+// Hassas veri triaj modülü.
+// Sheet'lerden toplanan benzersiz değerleri kullanıcıya tek tek
+// gösterir; HAYIR (gizleme) / EVET (gizle, hassas) butonları veya
+// klavye Sol/Sağ ok tuşlarıyla karar alınır. Tinder-vari swipe
+// animasyonu ile bir sonraki kart gelir.
+//
+// IIFE + global namespace (window.EA.triage).
+
+window.EA = window.EA || {};
+window.EA.triage = (function () {
+  const MAX_DISPLAY_LEN = 200;
+
+  function fmtValue(v) {
+    if (v == null) return '';
+    if (typeof v === 'number') {
+      if (!isFinite(v)) return String(v);
+      return Number.isInteger(v) ? String(v) : v.toFixed(4).replace(/\.?0+$/, '');
+    }
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v);
+  }
+
+  // Sheet'lerden raporda görüntülenecek benzersiz değerleri toplar.
+  // Şu an sample'lanan iki yeri kapsar: pattern table örnek değer ve
+  // tek-seferlik formül değeri.
+  function collectCandidates(sheets) {
+    const seen = new Map();
+    function add(v, occurrence) {
+      if (v == null) return;
+      const display = fmtValue(v);
+      if (display === '') return;
+      if (!seen.has(display)) {
+        seen.set(display, { display, occurrences: [] });
+      }
+      seen.get(display).occurrences.push(occurrence);
+    }
+    for (const s of sheets) {
+      if (s.patternGroups) {
+        for (const g of s.patternGroups.values()) {
+          add(g.sample.v, { sheet: s.name, addr: g.sample.addr });
+        }
+      }
+      if (s.oneOffs) {
+        for (const o of s.oneOffs) {
+          add(o.value, { sheet: s.name, addr: o.addr });
+        }
+      }
+    }
+    // Görünüm sırası: en çok hücrede görülen → en az.
+    return [...seen.values()].sort(
+      (a, b) => b.occurrences.length - a.occurrences.length
+    );
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = String(s);
+    return div.innerHTML;
+  }
+
+  function truncate(s, n) {
+    if (s.length <= n) return s;
+    return s.slice(0, n - 1) + '…';
+  }
+
+  function buildCardEl(item, idx, total) {
+    const card = document.createElement('div');
+    card.className = 'triage-card';
+    const occ = item.occurrences.length;
+    const first = item.occurrences[0];
+    const moreText = occ > 1 ? ` <span class="triage-card-more">(+${occ - 1} daha)</span>` : '';
+    card.innerHTML = `
+      <div class="triage-card-value">${escapeHtml(truncate(item.display, MAX_DISPLAY_LEN))}</div>
+      <div class="triage-card-context">
+        ${occ} hücrede · İlk: <code>${escapeHtml(first.sheet)}!${escapeHtml(first.addr)}</code>${moreText}
+      </div>
+    `;
+    return card;
+  }
+
+  // Promise<Set<string>> — kullanıcının hassas işaretlediği display'ler.
+  function runTriage(candidates) {
+    return new Promise((resolve) => {
+      if (!candidates || candidates.length === 0) {
+        resolve(new Set());
+        return;
+      }
+
+      const overlay = document.getElementById('triage-overlay');
+      const stack = document.getElementById('triage-stack');
+      const noBtn = document.getElementById('triage-no');
+      const yesBtn = document.getElementById('triage-yes');
+      const skipBtn = document.getElementById('triage-skip-all');
+      const progressEl = document.getElementById('triage-progress');
+
+      let idx = 0;
+      const total = candidates.length;
+      const sensitive = new Set();
+      let busy = false;
+
+      function updateProgress() {
+        progressEl.textContent = `${Math.min(idx + 1, total)} / ${total}`;
+      }
+
+      function showCurrent() {
+        if (idx >= total) {
+          finish();
+          return;
+        }
+        updateProgress();
+        stack.innerHTML = '';
+        const card = buildCardEl(candidates[idx], idx, total);
+        // Yeni kart aşağıdan/saydam halde girer.
+        card.classList.add('enter');
+        stack.appendChild(card);
+        // Reflow zorla, sonra enter class'ını kaldır → transition.
+        // requestAnimationFrame ile yumuşak ilerletme.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => card.classList.remove('enter'));
+        });
+        busy = false;
+      }
+
+      function decide(isSensitive) {
+        if (busy || idx >= total) return;
+        busy = true;
+        const card = stack.querySelector('.triage-card');
+        const item = candidates[idx];
+        if (isSensitive) sensitive.add(item.display);
+        if (!card) {
+          idx++;
+          showCurrent();
+          return;
+        }
+        card.classList.add(isSensitive ? 'swipe-right' : 'swipe-left');
+        const onEnd = () => {
+          card.removeEventListener('transitionend', onEnd);
+          idx++;
+          showCurrent();
+        };
+        card.addEventListener('transitionend', onEnd);
+        // Güvenlik: transitionend tetiklenmezse 500ms sonra zorla ilerle.
+        setTimeout(() => {
+          if (busy) {
+            card.removeEventListener('transitionend', onEnd);
+            idx++;
+            showCurrent();
+          }
+        }, 500);
+      }
+
+      function finish() {
+        cleanup();
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+        resolve(sensitive);
+      }
+
+      function skipAll() {
+        idx = total;
+        finish();
+      }
+
+      function onKey(e) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          decide(false);
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          decide(true);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          skipAll();
+        }
+      }
+
+      function onNo() { decide(false); }
+      function onYes() { decide(true); }
+
+      function cleanup() {
+        noBtn.removeEventListener('click', onNo);
+        yesBtn.removeEventListener('click', onYes);
+        skipBtn.removeEventListener('click', skipAll);
+        document.removeEventListener('keydown', onKey);
+      }
+
+      noBtn.addEventListener('click', onNo);
+      yesBtn.addEventListener('click', onYes);
+      skipBtn.addEventListener('click', skipAll);
+      document.addEventListener('keydown', onKey);
+
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+      showCurrent();
+    });
+  }
+
+  return { collectCandidates, runTriage };
+})();
+
+
 // === js/markdown.js ===
 // Markdown rapor montajı. IIFE + global namespace (window.EA.markdown).
 
@@ -742,6 +1142,13 @@ window.EA.markdown = (function () {
     }
     if (v instanceof Date) return v.toISOString().slice(0, 10);
     return String(v);
+  }
+
+  // Triage'da işaretlenen değerleri maskeler. Set boş/yoksa normal format.
+  function maskedValue(v, sensitive) {
+    const f = fmtValue(v);
+    if (sensitive && sensitive.has(f)) return '`***`';
+    return escapeCell(f);
   }
 
   function joinTrimmed(arr, max = 80) {
@@ -801,7 +1208,7 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderPatternTable(sheet) {
+  function renderPatternTable(sheet, sensitive) {
     const groups = sheet.patternGroups;
     if (!groups || groups.size === 0) return '';
     const sorted = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
@@ -814,7 +1221,7 @@ window.EA.markdown = (function () {
     for (const g of sorted) {
       const ranges = compactRanges(g.cells);
       const rangeStr = joinTrimmed(ranges, 60);
-      const sampleVal = escapeCell(fmtValue(g.sample.v));
+      const sampleVal = maskedValue(g.sample.v, sensitive);
       const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
       const patternEsc = escapeInlineCode(g.pattern);
       lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
@@ -885,7 +1292,7 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderOneOffs(sheet) {
+  function renderOneOffs(sheet, sensitive) {
     const oneOffs = sheet.oneOffs ?? [];
     if (oneOffs.length === 0) return '';
     const lines = [
@@ -895,13 +1302,13 @@ window.EA.markdown = (function () {
       '|-------|--------|-------|',
     ];
     for (const o of oneOffs) {
-      lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${escapeCell(fmtValue(o.value))} |`);
+      lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${maskedValue(o.value, sensitive)} |`);
     }
     lines.push('');
     return lines.join(NL);
   }
 
-  function renderSheetSection(sheet) {
+  function renderSheetSection(sheet, sensitive) {
     const label = hiddenLabel(sheet.hidden);
     const visTag = label ? ` *(${label.toUpperCase()})*` : '';
     const lines = [
@@ -917,14 +1324,14 @@ window.EA.markdown = (function () {
       return lines.join(NL);
     }
 
-    lines.push(renderPatternTable(sheet));
+    lines.push(renderPatternTable(sheet, sensitive));
     const incBlock = renderInconsistencies(sheet);
     if (incBlock) lines.push(incBlock);
     const constBlock = renderConstantsTable(sheet);
     if (constBlock) lines.push(constBlock);
     const crossBlock = renderCrossSheetRefs(sheet);
     if (crossBlock) lines.push(crossBlock);
-    const oneOffBlock = renderOneOffs(sheet);
+    const oneOffBlock = renderOneOffs(sheet, sensitive);
     if (oneOffBlock) lines.push(oneOffBlock);
 
     return lines.join(NL);
@@ -1026,15 +1433,26 @@ window.EA.markdown = (function () {
     };
   }
 
-  function buildReport({ fileMeta, sheets, namedRanges, externalLinks }) {
+  function renderRedactionNote(sensitive) {
+    if (!sensitive || sensitive.size === 0) return '';
+    return [
+      '## Redaction',
+      '',
+      `Kullanıcı tarafından **${sensitive.size}** benzersiz değer hassas işaretlendi ve raporda \`***\` olarak gizlendi.`,
+      '',
+    ].join(NL);
+  }
+
+  function buildReport({ fileMeta, sheets, namedRanges, externalLinks, sensitive }) {
     const totals = computeTotals(sheets);
     const parts = [
       renderHeader(fileMeta),
       renderSummary(sheets, totals, namedRanges, externalLinks),
+      renderRedactionNote(sensitive),
       renderSheetListing(sheets),
       '---',
       '',
-      ...sheets.map(renderSheetSection),
+      ...sheets.map((s) => renderSheetSection(s, sensitive)),
       '---',
       '',
       renderNamedRanges(namedRanges),
@@ -1065,6 +1483,7 @@ window.EA.markdown = (function () {
     collectInconsistencyOutlierAddrs,
   } = window.EA.analysis;
   const { buildReport } = window.EA.markdown;
+  const { collectCandidates, runTriage } = window.EA.triage;
 
   const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 
@@ -1185,6 +1604,17 @@ window.EA.markdown = (function () {
       const namedRanges = collectNamedRanges(wb);
       const externalLinks = aggregateExternalLinks(sheets);
 
+      const candidates = collectCandidates(sheets);
+      let sensitive = new Set();
+      if (candidates.length > 0) {
+        setStatus(
+          `Hassas veri kontrolü: ${candidates.length} benzersiz değer triaj edilecek (← Hayır / → Evet, Esc: bitir)…`
+        );
+        await yieldToUI();
+        sensitive = await runTriage(candidates);
+        setStatus(`Triaj tamam — ${sensitive.size} değer hassas işaretlendi.`);
+      }
+
       setStatus('Markdown raporu oluşturuluyor…');
       await yieldToUI();
       const md = buildReport({
@@ -1196,6 +1626,7 @@ window.EA.markdown = (function () {
         sheets,
         namedRanges,
         externalLinks,
+        sensitive,
       });
 
       currentMarkdown = md;

@@ -32,6 +32,13 @@ window.EA.markdown = (function () {
     return String(v);
   }
 
+  // Triage'da işaretlenen değerleri maskeler. Set boş/yoksa normal format.
+  function maskedValue(v, sensitive) {
+    const f = fmtValue(v);
+    if (sensitive && sensitive.has(f)) return '`***`';
+    return escapeCell(f);
+  }
+
   function joinTrimmed(arr, max = 80) {
     const s = arr.join(', ');
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
@@ -89,7 +96,7 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderPatternTable(sheet) {
+  function renderPatternTable(sheet, sensitive) {
     const groups = sheet.patternGroups;
     if (!groups || groups.size === 0) return '';
     const sorted = [...groups.values()].sort((a, b) => b.cells.length - a.cells.length);
@@ -102,7 +109,7 @@ window.EA.markdown = (function () {
     for (const g of sorted) {
       const ranges = compactRanges(g.cells);
       const rangeStr = joinTrimmed(ranges, 60);
-      const sampleVal = escapeCell(fmtValue(g.sample.v));
+      const sampleVal = maskedValue(g.sample.v, sensitive);
       const consts = g.numericConstants.length ? '`' + g.numericConstants.join('`, `') + '`' : '';
       const patternEsc = escapeInlineCode(g.pattern);
       lines.push(`| \`${rangeStr}\` | \`${patternEsc}\` | ${g.cells.length} | ${sampleVal} | ${consts} |`);
@@ -173,7 +180,7 @@ window.EA.markdown = (function () {
     return lines.join(NL);
   }
 
-  function renderOneOffs(sheet) {
+  function renderOneOffs(sheet, sensitive) {
     const oneOffs = sheet.oneOffs ?? [];
     if (oneOffs.length === 0) return '';
     const lines = [
@@ -183,13 +190,13 @@ window.EA.markdown = (function () {
       '|-------|--------|-------|',
     ];
     for (const o of oneOffs) {
-      lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${escapeCell(fmtValue(o.value))} |`);
+      lines.push(`| ${o.addr} | \`${escapeInlineCode(o.pattern)}\` | ${maskedValue(o.value, sensitive)} |`);
     }
     lines.push('');
     return lines.join(NL);
   }
 
-  function renderSheetSection(sheet) {
+  function renderSheetSection(sheet, sensitive) {
     const label = hiddenLabel(sheet.hidden);
     const visTag = label ? ` *(${label.toUpperCase()})*` : '';
     const lines = [
@@ -205,14 +212,14 @@ window.EA.markdown = (function () {
       return lines.join(NL);
     }
 
-    lines.push(renderPatternTable(sheet));
+    lines.push(renderPatternTable(sheet, sensitive));
     const incBlock = renderInconsistencies(sheet);
     if (incBlock) lines.push(incBlock);
     const constBlock = renderConstantsTable(sheet);
     if (constBlock) lines.push(constBlock);
     const crossBlock = renderCrossSheetRefs(sheet);
     if (crossBlock) lines.push(crossBlock);
-    const oneOffBlock = renderOneOffs(sheet);
+    const oneOffBlock = renderOneOffs(sheet, sensitive);
     if (oneOffBlock) lines.push(oneOffBlock);
 
     return lines.join(NL);
@@ -314,15 +321,26 @@ window.EA.markdown = (function () {
     };
   }
 
-  function buildReport({ fileMeta, sheets, namedRanges, externalLinks }) {
+  function renderRedactionNote(sensitive) {
+    if (!sensitive || sensitive.size === 0) return '';
+    return [
+      '## Redaction',
+      '',
+      `Kullanıcı tarafından **${sensitive.size}** benzersiz değer hassas işaretlendi ve raporda \`***\` olarak gizlendi.`,
+      '',
+    ].join(NL);
+  }
+
+  function buildReport({ fileMeta, sheets, namedRanges, externalLinks, sensitive }) {
     const totals = computeTotals(sheets);
     const parts = [
       renderHeader(fileMeta),
       renderSummary(sheets, totals, namedRanges, externalLinks),
+      renderRedactionNote(sensitive),
       renderSheetListing(sheets),
       '---',
       '',
-      ...sheets.map(renderSheetSection),
+      ...sheets.map((s) => renderSheetSection(s, sensitive)),
       '---',
       '',
       renderNamedRanges(namedRanges),
