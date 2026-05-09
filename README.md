@@ -8,6 +8,12 @@
 
 GitHub Pages veya `python -m http.server 8000` ile de çalışır; sadece tarayıcıda CDN'den SheetJS çekebilmek için internet bağlantısı yeterli.
 
+### Standalone tek-dosya sürümü
+
+`.js` dosyalarına izin vermeyen ortak ağ sürücüleri (FSRM "Executable Files" kuralı vb.) için tüm CSS+JS'in inline edildiği tek dosyalı bir bundle var: **`standalone/index.html`** (~38 KB).
+
+Bu dosyayı tek başına kopyalamanız yeterli; klasör yapısına ihtiyacı yok. Kaynak kodda değişiklik yaparsanız `node build-standalone.js` ile yeniden üretebilirsiniz.
+
 ## Kullanım
 
 1. `.xlsx` veya `.xlsm` dosyanızı dropzone'a sürükleyin (veya "dosya seçin").
