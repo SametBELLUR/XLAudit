@@ -4,16 +4,9 @@
 
 ## Çalıştırma
 
-ES modülleri kullanıldığı için `index.html` dosyasını doğrudan çift tıklayarak (`file://`) açmak çalışmaz. Yerel bir HTTP sunucusu çalıştırın:
+`index.html` dosyasını doğrudan tarayıcıda açın — çift tıklamak yeterli (`file://` desteklenir, build adımı veya yerel sunucu gerekmez).
 
-```bash
-cd XL-LLM-TOOL
-python -m http.server 8000
-```
-
-Ardından tarayıcıda `http://localhost:8000/` adresini açın.
-
-Alternatif: VSCode "Live Server" eklentisi veya `npx serve`.
+GitHub Pages veya `python -m http.server 8000` ile de çalışır; sadece tarayıcıda CDN'den SheetJS çekebilmek için internet bağlantısı yeterli.
 
 ## Kullanım
 
