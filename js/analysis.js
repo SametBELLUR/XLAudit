@@ -158,7 +158,12 @@ export function findOneOffFormulas(groups, inconsistencyOutlierAddrs) {
     if (g.cells.length !== 1) continue;
     const cell = g.cells[0];
     if (inconsistencyOutlierAddrs.has(cell.addr)) continue;
-    out.push({ addr: cell.addr, pattern: g.pattern, value: cell.v });
+    out.push({
+      addr: cell.addr,
+      pattern: g.pattern,
+      value: cell.v,
+      redacted: !!cell.redacted,
+    });
   }
   return out.sort((a, b) => a.addr.localeCompare(b.addr));
 }

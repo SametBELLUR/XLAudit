@@ -5,6 +5,9 @@ import {
   collectSheetMeta,
   collectFormulas,
   collectNamedRanges,
+  extractRedactionConfig,
+  compileRedactionRules,
+  getSheetRedactor,
 } from './parse.js';
 import { groupByPattern } from './patterns.js';
 import {
@@ -111,23 +114,46 @@ async function runAnalysis() {
     }
     const wb = wbResult.data;
 
+    setStatus('Redaction config aranıyor…');
+    const rawConfig = extractRedactionConfig(wb);
+    const compiled = compileRedactionRules(rawConfig.rules);
+    const redaction = {
+      sheetName: rawConfig.sheetName,
+      compiledRules: compiled.compiledRules,
+      parseErrors: compiled.parseErrors,
+      errors: rawConfig.errors,
+    };
+    if (rawConfig.sheetName) {
+      console.log(
+        `[ExcelAudit] Redaction config: '${rawConfig.sheetName}', ${compiled.compiledRules.length} kural derlendi, ${compiled.parseErrors.length} parse hatası.`
+      );
+    }
+
     setStatus(`Sheet metadata toplanıyor (${wb.SheetNames.length} sheet)…`);
-    const sheets = collectSheetMeta(wb);
+    const allSheets = collectSheetMeta(wb);
+    // Config sayfasını ana akıştan dışla — analiz edilmesin, rapora
+    // sheet section olarak girmesin. Genel Özet'te "redaction" satırı
+    // ile zaten bahsediliyor.
+    const sheets = rawConfig.sheetName
+      ? allSheets.filter((s) => s.name !== rawConfig.sheetName)
+      : allSheets;
 
     for (let i = 0; i < sheets.length; i++) {
       const s = sheets[i];
       setStatus(`Sheet ${i + 1}/${sheets.length} analiz ediliyor: "${s.name}"…`);
       await yieldToUI();
       const ws = wb.Sheets[s.name];
-      s.formulas = collectFormulas(ws);
+      const isRedacted = getSheetRedactor(compiled, s.name);
+      s.formulas = collectFormulas(ws, isRedacted);
       s.patternGroups = groupByPattern(s.formulas);
       s.inconsistencies = findInconsistencies(s.formulas, s.patternGroups);
       s.constants = aggregateConstants(s.patternGroups);
       s.crossSheetRefs = aggregateCrossSheetRefs(s.patternGroups);
       const outlierAddrs = collectInconsistencyOutlierAddrs(s.inconsistencies);
       s.oneOffs = findOneOffFormulas(s.patternGroups, outlierAddrs);
+      const redactedCount = s.formulas.filter((f) => f.redacted).length;
       console.log(
-        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül, ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
+        `[ExcelAudit] ${s.name}: ${s.formulas.length} formül (${redactedCount} maskeli), ${s.patternGroups.size} patern, ${s.inconsistencies.filter((c) => c.state !== 'tutarlı').length} tutarsız sütun`
       );
     }
 
@@ -147,6 +173,7 @@ async function runAnalysis() {
       sheets,
       namedRanges,
       externalLinks,
+      redaction,
     });
 
     currentMarkdown = md;
