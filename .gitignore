@@ -1,0 +1,12 @@
+.DS_Store
+*.tmp
+*.log
+.vscode/
+.idea/
+
+# Local test fixtures (kullanıcı kendi dosyalarını commit etmesin)
+samples/
+*.xlsx
+*.xlsm
+!docs/**/*.xlsx
+!docs/**/*.xlsm

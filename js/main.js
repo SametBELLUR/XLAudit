@@ -1,0 +1,202 @@
+// Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
+
+import { readWorkbook, collectSheetMeta } from './parse.js';
+import { buildReport } from './markdown.js';
+
+const ACCEPTED_EXTS = ['.xlsx', '.xlsm'];
+const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
+
+const els = {
+  dropzone: document.getElementById('dropzone'),
+  fileInput: document.getElementById('file-input'),
+  fileInfo: document.getElementById('file-info'),
+  analyzeBtn: document.getElementById('analyze-btn'),
+  status: document.getElementById('status-line'),
+  errorBox: document.getElementById('error-box'),
+  errorMsg: document.getElementById('error-msg'),
+  errorDetail: document.getElementById('error-detail'),
+  resultBox: document.getElementById('result-box'),
+  resultOutput: document.getElementById('result-output'),
+  copyBtn: document.getElementById('copy-btn'),
+  downloadBtn: document.getElementById('download-btn'),
+};
+
+let currentFile = null;
+let currentMarkdown = '';
+
+function setStatus(msg) {
+  els.status.textContent = msg ?? '';
+}
+
+function showError(msg, detail) {
+  els.errorBox.hidden = false;
+  els.errorMsg.textContent = msg;
+  els.errorDetail.textContent = detail ?? '';
+  console.error('[ExcelAudit]', msg, detail);
+}
+
+function clearError() {
+  els.errorBox.hidden = true;
+  els.errorMsg.textContent = '';
+  els.errorDetail.textContent = '';
+}
+
+function isAcceptedFile(file) {
+  if (!file) return false;
+  const name = file.name.toLowerCase();
+  return ACCEPTED_EXTS.some((ext) => name.endsWith(ext));
+}
+
+function fileType(file) {
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith('.xlsm')) return '.xlsm';
+  if (lower.endsWith('.xlsx')) return '.xlsx';
+  return 'bilinmiyor';
+}
+
+function setCurrentFile(file) {
+  if (!isAcceptedFile(file)) {
+    showError(
+      'Bu dosya tipi desteklenmiyor.',
+      `Beklenen: ${ACCEPTED_EXTS.join(', ')}\nVerilen: ${file?.name ?? '(yok)'}`
+    );
+    currentFile = null;
+    els.fileInfo.hidden = true;
+    els.analyzeBtn.disabled = true;
+    return;
+  }
+  clearError();
+  currentFile = file;
+  els.fileInfo.hidden = false;
+  els.fileInfo.textContent = `${file.name} — ${(file.size / 1024).toFixed(1)} KB`;
+  els.analyzeBtn.disabled = false;
+  setStatus('Hazır. "Analiz Et" butonuna basın.');
+  if (file.size > LARGE_FILE_THRESHOLD) {
+    setStatus(
+      `Dosya büyük (${(file.size / 1024 / 1024).toFixed(1)} MB). Analiz birkaç saniye sürebilir.`
+    );
+  }
+}
+
+async function runAnalysis() {
+  if (!currentFile) return;
+  clearError();
+  els.resultBox.hidden = true;
+  els.analyzeBtn.disabled = true;
+  setStatus('Dosya okunuyor…');
+
+  try {
+    const buf = await currentFile.arrayBuffer();
+    setStatus('Workbook ayrıştırılıyor…');
+    const wbResult = await readWorkbook(buf);
+    if (!wbResult.ok) {
+      showError('Workbook ayrıştırılamadı.', wbResult.error);
+      return;
+    }
+    const wb = wbResult.data;
+
+    setStatus(`Sheet metadata toplanıyor (${wb.SheetNames.length} sheet)…`);
+    const sheets = collectSheetMeta(wb);
+
+    setStatus('Markdown raporu oluşturuluyor…');
+    const md = buildReport({
+      fileMeta: {
+        fileName: currentFile.name,
+        fileSize: currentFile.size,
+        fileType: fileType(currentFile),
+      },
+      sheets,
+    });
+
+    currentMarkdown = md;
+    els.resultOutput.textContent = md;
+    els.resultBox.hidden = false;
+    setStatus(`Tamamlandı. ${sheets.length} sheet işlendi.`);
+  } catch (err) {
+    showError('Beklenmeyen hata oluştu.', err?.stack ?? String(err));
+  } finally {
+    els.analyzeBtn.disabled = !currentFile;
+  }
+}
+
+function bindDropzone() {
+  const dz = els.dropzone;
+
+  ['dragenter', 'dragover'].forEach((ev) =>
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.add('dragover');
+    })
+  );
+
+  ['dragleave', 'drop'].forEach((ev) =>
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dz.classList.remove('dragover');
+    })
+  );
+
+  dz.addEventListener('drop', (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) setCurrentFile(file);
+  });
+
+  dz.addEventListener('click', (e) => {
+    if (e.target.closest('label')) return;
+    els.fileInput.click();
+  });
+
+  dz.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      els.fileInput.click();
+    }
+  });
+}
+
+function bindButtons() {
+  els.fileInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) setCurrentFile(file);
+  });
+
+  els.analyzeBtn.addEventListener('click', runAnalysis);
+
+  els.copyBtn.addEventListener('click', async () => {
+    if (!currentMarkdown) return;
+    try {
+      await navigator.clipboard.writeText(currentMarkdown);
+      const old = els.copyBtn.textContent;
+      els.copyBtn.textContent = 'Kopyalandı';
+      setTimeout(() => (els.copyBtn.textContent = old), 1500);
+    } catch (err) {
+      showError('Panoya kopyalama başarısız.', String(err));
+    }
+  });
+
+  els.downloadBtn.addEventListener('click', () => {
+    if (!currentMarkdown || !currentFile) return;
+    const baseName = currentFile.name.replace(/\.(xlsx|xlsm)$/i, '');
+    const fname = `${baseName}-denetim.md`;
+    const blob = new Blob([currentMarkdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
+
+function init() {
+  bindDropzone();
+  bindButtons();
+  setStatus('Bir Excel dosyası yükleyin.');
+  console.log('[ExcelAudit] Hazır.');
+}
+
+init();

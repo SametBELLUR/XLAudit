@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel Denetim Raporu Üreticisi</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Excel Denetim Raporu Üreticisi</h1>
+      <p class="subtitle">
+        <code>.xlsx</code> veya <code>.xlsm</code> dosyanızdan, LLM ile denetim için
+        yapılandırılmış Markdown raporu üretir.
+        <strong>Dosyanız tarayıcınızda işlenir, hiçbir yere gönderilmez.</strong>
+      </p>
+    </header>
+
+    <section id="dropzone" class="dropzone" tabindex="0">
+      <p class="dropzone-text">
+        Dosyayı buraya sürükleyin veya
+        <label class="filepicker">
+          <input type="file" id="file-input" accept=".xlsx,.xlsm" hidden>
+          <span class="filepicker-link">dosya seçin</span>
+        </label>
+      </p>
+      <p class="dropzone-hint">Yalnızca <code>.xlsx</code> ve <code>.xlsm</code> kabul edilir.</p>
+      <p id="file-info" class="file-info" hidden></p>
+    </section>
+
+    <section class="actions">
+      <button id="analyze-btn" type="button" disabled>Analiz Et</button>
+      <p id="status-line" class="status" aria-live="polite"></p>
+    </section>
+
+    <section id="error-box" class="error-box" hidden>
+      <strong>Hata:</strong>
+      <span id="error-msg"></span>
+      <details>
+        <summary>Teknik detay</summary>
+        <pre id="error-detail"></pre>
+      </details>
+    </section>
+
+    <section id="result-box" class="result-box" hidden>
+      <div class="result-actions">
+        <button id="copy-btn" type="button">Panoya Kopyala</button>
+        <button id="download-btn" type="button">Markdown'ı İndir</button>
+      </div>
+      <pre id="result-output" class="result-output"></pre>
+    </section>
+  </main>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+          onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
