@@ -40,3 +40,34 @@ export function hiddenLabel(hidden) {
   if (hidden === 2) return 'çok gizli';
   return null;
 }
+
+// Sparse (default) ve dense modu birlikte destekler.
+function getCell(ws, r, c, addr) {
+  if (ws['!data']) return ws['!data'][r]?.[c];
+  return ws[addr];
+}
+
+// Bir worksheet'in tüm formül hücrelerini toplar.
+// Dönüş: [{ addr, row(1-idx), col(0-idx), colLetter, f, v, t }]
+export function collectFormulas(ws) {
+  if (!ws || !ws['!ref']) return [];
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const out = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = getCell(ws, r, c, addr);
+      if (!cell || !cell.f) continue;
+      out.push({
+        addr,
+        row: r + 1,
+        col: c,
+        colLetter: XLSX.utils.encode_col(c),
+        f: cell.f,
+        v: cell.v,
+        t: cell.t,
+      });
+    }
+  }
+  return out;
+}

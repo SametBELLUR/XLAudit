@@ -47,5 +47,6 @@ Tek sayfa, vanilla JS (ES modules). Build adımı yok, npm yok.
 ## Sürüm Günlüğü
 
 - **M1 — İskelet + dosya yükleme:** Drag-drop, SheetJS yükleme, sheet listesi.
-- M2–M5 (yakında): formül listesi, patern motoru, tutarsızlık, named ranges/external links/gizli sayfalar.
+- **M2 — Düz formül listesi:** Sheet başına `Hücre | Formül | Tip | Değer` tablosu, async yield ile UI bloklamadan ilerleme.
+- M3–M5 (yakında): patern motoru, tutarsızlık, named ranges/external links/gizli sayfalar.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).

@@ -1,7 +1,9 @@
 // Giriş noktası: DOM olayları + analiz pipeline orkestrasyonu.
 
-import { readWorkbook, collectSheetMeta } from './parse.js';
+import { readWorkbook, collectSheetMeta, collectFormulas } from './parse.js';
 import { buildReport } from './markdown.js';
+
+const yieldToUI = () => new Promise((r) => setTimeout(r, 0));
 
 const ACCEPTED_EXTS = ['.xlsx', '.xlsm'];
 const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50 MB
@@ -98,7 +100,17 @@ async function runAnalysis() {
     setStatus(`Sheet metadata toplanıyor (${wb.SheetNames.length} sheet)…`);
     const sheets = collectSheetMeta(wb);
 
+    for (let i = 0; i < sheets.length; i++) {
+      const s = sheets[i];
+      setStatus(`Sheet ${i + 1}/${sheets.length} analiz ediliyor: "${s.name}"…`);
+      await yieldToUI();
+      const ws = wb.Sheets[s.name];
+      s.formulas = collectFormulas(ws);
+      console.log(`[ExcelAudit] ${s.name}: ${s.formulas.length} formül`);
+    }
+
     setStatus('Markdown raporu oluşturuluyor…');
+    await yieldToUI();
     const md = buildReport({
       fileMeta: {
         fileName: currentFile.name,
