@@ -36,6 +36,10 @@ If you're not sure what to ask your LLM, a ready-made prompt template is provide
 
 Copy the contents of `PROMPT.en.md`, append the report you generated, and send to your LLM.
 
+### For the curious: how it works
+
+A short, non-technical walkthrough of what's happening under the hood (why your file never leaves the browser, what "skeleton" means, how a misplaced VAT rate becomes obvious at a glance): [**`HOW_IT_WORKS.en.md`**](HOW_IT_WORKS.en.md).
+
 ## Dependencies
 
 `index.html` pulls a single file from CDN:
@@ -55,6 +59,8 @@ Single page, vanilla JS. No build step, no npm. Modules are loaded via classic `
 ├── README.en.md     # English
 ├── PROMPT.md        # LLM analysis prompt template (Turkish)
 ├── PROMPT.en.md     # LLM analysis prompt template (English)
+├── HOW_IT_WORKS.md     # Plain-language walkthrough (Turkish)
+├── HOW_IT_WORKS.en.md  # Plain-language walkthrough (English)
 ├── index.html       # HTML shell, CDN script, module load order
 ├── css/styles.css   # Plain CSS (system font, max-width 900px)
 └── js/

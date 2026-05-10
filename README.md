@@ -36,6 +36,10 @@ LLM'inize ne sormak istediğinizden emin değilseniz, hazır bir prompt şablonu
 
 `PROMPT.md`'nin içeriğini kopyalayın, sonuna ürettiğiniz Markdown raporu yapıştırın, LLM'e gönderin.
 
+### Meraklısına: nasıl çalışıyor?
+
+Aracın kapakaltındaki mantığı (neden tarayıcıdan çıkmıyor, "skeleton" ne demek, KDV hatası tek bakışta nasıl ortaya çıkıyor) teknik olmayan bir dille anlatan kısa bir yazı: [**`HOW_IT_WORKS.md`**](HOW_IT_WORKS.md).
+
 ## Bağımlılıklar
 
 `index.html` CDN'den tek dosya çeker:
@@ -55,6 +59,8 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 ├── README.en.md     # English
 ├── PROMPT.md        # LLM analiz prompt şablonu (TR)
 ├── PROMPT.en.md     # LLM analiz prompt şablonu (EN)
+├── HOW_IT_WORKS.md     # Çalışma algoritması açıklaması (TR)
+├── HOW_IT_WORKS.en.md  # Çalışma algoritması açıklaması (EN)
 ├── index.html       # HTML iskelet, CDN script, modül yükleme sırası
 ├── css/styles.css   # Sade CSS (sistem font, max-width 900px)
 └── js/
