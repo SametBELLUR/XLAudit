@@ -64,7 +64,3 @@ Open a separate subsection for each visible sheet (you can also see hidden sheet
 - Where you are uncertain, add a note like "the report does not clarify this — confirm with the user".
 
 ---
-
-## Report
-
-[Paste the Markdown output produced by the **Excel Audit Report Generator** here.]

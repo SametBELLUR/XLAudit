@@ -6,8 +6,6 @@
 
 `.xlsx` ve `.xlsm` dosyalarını tarayıcıda işleyip LLM ile denetim için yapılandırılmış bir Markdown raporu üretir. **Dosya hiçbir sunucuya gönderilmez.**
 
-> **Lisans:** Bu proje [**PolyForm Noncommercial 1.0.0**](LICENSE) altında yayımlanmıştır. Kişisel, eğitsel, araştırma ve kâr amacı gütmeyen kuruluşlar için kullanım serbesttir; **ticari kullanım yasaktır**. Ticari lisans için yazara başvurun. (`SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0`)
-
 ## Çalıştırma
 
 `index.html` dosyasını doğrudan tarayıcıda açın — çift tıklamak yeterli (`file://` desteklenir, build adımı veya yerel sunucu gerekmez).

@@ -64,7 +64,3 @@ Her görünür sheet için ayrı bir alt başlık aç (gizli sheet'leri "Gizli �
 - Belirsiz olduğun yerlerde "rapor bunu netleştirmiyor, kullanıcıya teyit ettir" notunu ekle.
 
 ---
-
-## Rapor
-
-[Buraya **Excel Denetim Raporu Üreticisi**'nin ürettiği Markdown çıktısını yapıştırın.]
