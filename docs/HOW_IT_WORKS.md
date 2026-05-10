@@ -103,7 +103,7 @@ Hepsi tek bir Markdown raporunda paketleniyor.
 
 ## 7. Hassas veri triajı
 
-Excel'inizde müşteri adı, sicil numarası gibi şeyler varsa, formülün **hesaplanmış değeri** (örn. "Galataport") raporda görünebilir. Bu yüzden analizden önce bir popup açılıyor:
+Excel'inizde müşteri adı, sicil numarası gibi şeyler varsa, formülün **hesaplanmış değeri olarak** raporda görünebilir. Bu yüzden analizden önce bir popup açılıyor:
 
 - 3 sekme: **Metin / Sayısal / Ondalıklı**
 - Her benzersiz değer bir satır
