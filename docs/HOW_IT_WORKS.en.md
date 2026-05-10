@@ -103,7 +103,7 @@ All packaged into a single Markdown report.
 
 ## 7. Sensitive data triage
 
-If your Excel contains things like customer names or ID numbers, a formula's **computed value** (e.g. "Galataport") may show up in the report. So before producing the report, a popup appears:
+If your Excel contains things like customer names or ID numbers, a formula's **computed value** may show up in the report. So before producing the report, a popup appears:
 
 - 3 tabs: **Text / Integer / Decimal**
 - Every unique value is a row
