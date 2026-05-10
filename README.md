@@ -84,5 +84,5 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 - **PolyForm Noncommercial 1.0.0 lisansı:** ticari kullanım yasak; tüm kaynak dosyalarda SPDX header.
 - **Semantik sıkıştırma:** Tüm sayısal sabitler skeleton'da `{const}` ile abstrakte; aynı skeleton'ı paylaşan formüller workbook seviyesinde tek "Şablonlar" tablosunda; sabit dağılımı ve outlier hücre tespiti otomatik. Per-column tutarsızlık analizi kaldırıldı (Şablonlar tablosu işlevini daha keskin yapıyor).
 - **İndirme formatı:** `.md` (varsayılan) veya `.txt` selectbox'tan seçilir.
-- **Prompt şablonu:** [`PROMPT.md`](PROMPT.md) — LLM'e raporu yorumlatmak için hazır 2 bölümlü (genel iş kuralları + sheet bazlı analiz) şablon.
+- **Prompt şablonu:** [`docs/PROMPT.md`](docs/PROMPT.md) — LLM'e raporu yorumlatmak için hazır 2 bölümlü (genel iş kuralları + sheet bazlı analiz) şablon.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).

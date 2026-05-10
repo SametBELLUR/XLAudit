@@ -84,5 +84,5 @@ Single page, vanilla JS. No build step, no npm. Modules are loaded via classic `
 - **PolyForm Noncommercial 1.0.0 license:** Commercial use prohibited; SPDX headers on all source files.
 - **Semantic compression:** All numeric constants are abstracted to `{const}` in skeletons; formulas sharing the same skeleton across sheets are merged into a single workbook-level "Templates" table; constant distribution and outlier cell detection are automatic. Per-column inconsistency analysis was removed (the Templates table delivers a sharper signal).
 - **Download format:** `.md` (default) or `.txt` selectable from a small selectbox.
-- **Prompt template:** [`PROMPT.md`](PROMPT.md) — ready-made two-part (general business rules + sheet-by-sheet) template to make the LLM interpret the report.
+- **Prompt template:** [`docs/PROMPT.md`](docs/PROMPT.md) — ready-made two-part (general business rules + sheet-by-sheet) template to make the LLM interpret the report.
 - M6 (later): VBA macro extraction (MS-OVBA decompression).
