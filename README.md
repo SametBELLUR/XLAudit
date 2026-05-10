@@ -28,15 +28,15 @@ GitHub Pages veya `python -m http.server 8000` ile de çalışır; sadece taray�
 
 ### LLM Prompt Şablonu
 
-LLM'inize ne sormak istediğinizden emin değilseniz, hazır bir prompt şablonu var: [`PROMPT.md`](PROMPT.md). Bu şablon LLM'e iki bölümlü bir analiz yaptırır:
+LLM'inize ne sormak istediğinizden emin değilseniz, hazır bir prompt şablonu var: [`docs/PROMPT.md`](docs/PROMPT.md). Bu şablon LLM'e iki bölümlü bir analiz yaptırır:
 1. **Genel iş kuralları** — workbook'un amacı, baskın şablonlar, sheet'ler arası akış, anomaliler
 2. **Sheet bazlı analiz** — her sheet için görevi, önemli formüller, dikkat noktaları
 
-`PROMPT.md`'nin içeriğini kopyalayın, sonuna ürettiğiniz Markdown raporu yapıştırın, LLM'e gönderin.
+`docs/PROMPT.md`'nin içeriğini kopyalayın, sonuna ürettiğiniz Markdown raporu yapıştırın, LLM'e gönderin.
 
 ### Meraklısına: nasıl çalışıyor?
 
-Aracın kapakaltındaki mantığı (neden tarayıcıdan çıkmıyor, "skeleton" ne demek, KDV hatası tek bakışta nasıl ortaya çıkıyor) teknik olmayan bir dille anlatan kısa bir yazı: [**`HOW_IT_WORKS.md`**](HOW_IT_WORKS.md).
+Aracın kapakaltındaki mantığı (neden tarayıcıdan çıkmıyor, "skeleton" ne demek, KDV hatası tek bakışta nasıl ortaya çıkıyor) teknik olmayan bir dille anlatan kısa bir yazı: [**`docs/HOW_IT_WORKS.md`**](docs/HOW_IT_WORKS.md).
 
 ## Bağımlılıklar
 
@@ -55,10 +55,11 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 ├── LICENSE          # PolyForm Noncommercial 1.0.0
 ├── README.md        # Türkçe (varsayılan)
 ├── README.en.md     # English
-├── PROMPT.md        # LLM analiz prompt şablonu (TR)
-├── PROMPT.en.md     # LLM analiz prompt şablonu (EN)
-├── HOW_IT_WORKS.md     # Çalışma algoritması açıklaması (TR)
-├── HOW_IT_WORKS.en.md  # Çalışma algoritması açıklaması (EN)
+├── docs/
+│   ├── PROMPT.md        # LLM analiz prompt şablonu (TR)
+│   ├── PROMPT.en.md     # LLM analiz prompt şablonu (EN)
+│   ├── HOW_IT_WORKS.md     # Çalışma algoritması açıklaması (TR)
+│   └── HOW_IT_WORKS.en.md  # Çalışma algoritması açıklaması (EN)
 ├── index.html       # HTML iskelet, CDN script, modül yükleme sırası
 ├── css/styles.css   # Sade CSS (sistem font, max-width 900px)
 └── js/
@@ -83,5 +84,5 @@ Tek sayfa, vanilla JS. Build adımı yok, npm yok. Modüller klasik `<script>` t
 - **PolyForm Noncommercial 1.0.0 lisansı:** ticari kullanım yasak; tüm kaynak dosyalarda SPDX header.
 - **Semantik sıkıştırma:** Tüm sayısal sabitler skeleton'da `{const}` ile abstrakte; aynı skeleton'ı paylaşan formüller workbook seviyesinde tek "Şablonlar" tablosunda; sabit dağılımı ve outlier hücre tespiti otomatik. Per-column tutarsızlık analizi kaldırıldı (Şablonlar tablosu işlevini daha keskin yapıyor).
 - **İndirme formatı:** `.md` (varsayılan) veya `.txt` selectbox'tan seçilir.
-- **Prompt şablonu:** [`PROMPT.md`](PROMPT.md) — LLM'e raporu yorumlatmak için hazır 2 bölümlü (genel iş kuralları + sheet bazlı analiz) şablon.
+- **Prompt şablonu:** [`docs/PROMPT.md`](docs/PROMPT.md) — LLM'e raporu yorumlatmak için hazır 2 bölümlü (genel iş kuralları + sheet bazlı analiz) şablon.
 - M6 (sonra): VBA makro çıkarma (MS-OVBA dekompresyonu).
