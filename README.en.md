@@ -6,8 +6,6 @@
 
 Processes `.xlsx` and `.xlsm` files in the browser to produce a structured Markdown report for LLM-based audit. **No file ever leaves your browser.**
 
-> **License:** This project is released under [**PolyForm Noncommercial 1.0.0**](LICENSE). Personal, educational, research, and nonprofit use are permitted; **commercial use is prohibited**. For commercial licensing, contact the author. (`SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0`)
-
 ## Running
 
 Open `index.html` directly in your browser — double-click works (`file://` is supported, no build step or local server required).
